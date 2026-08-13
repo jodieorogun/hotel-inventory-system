@@ -53,7 +53,7 @@ export default function DashboardPage() {
         );
     }
 
-   return (
+return (
     <main className="min-h-screen bg-black p-8 text-white">
         <div className="mx-auto max-w-5xl">
             <h1 className="text-3xl font-bold">
@@ -65,31 +65,80 @@ export default function DashboardPage() {
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <a
-                    href="/inventory"
-                    className="rounded-xl border border-gray-800 bg-gray-950 p-6"
-                >
-                    <h2 className="text-xl font-semibold">
-                        Inventory
-                    </h2>
+                {profile?.role === "procurement" && (
+                    <>
+                        <a
+                            href="/procurement/new"
+                            className="rounded-xl border border-gray-800 bg-gray-950 p-6"
+                        >
+                            <h2 className="text-xl font-semibold">
+                                New Purchase Request
+                            </h2>
 
-                    <p className="mt-2 text-gray-400">
-                        View current hotel stock
-                    </p>
-                </a>
+                            <p className="mt-2 text-gray-400">
+                                Submit items for approval
+                            </p>
+                        </a>
 
-                <a
-                    href="/procurement"
-                    className="rounded-xl border border-gray-800 bg-gray-950 p-6"
-                >
-                    <h2 className="text-xl font-semibold">
-                        Procurement
-                    </h2>
+                        <a
+                            href="/procurement"
+                            className="rounded-xl border border-gray-800 bg-gray-950 p-6"
+                        >
+                            <h2 className="text-xl font-semibold">
+                                My Requests
+                            </h2>
 
-                    <p className="mt-2 text-gray-400">
-                        View procurement requests
-                    </p>
-                </a>
+                            <p className="mt-2 text-gray-400">
+                                View submitted requests
+                            </p>
+                        </a>
+                    </>
+                )}
+
+                {profile?.role === "accountant" && (
+                    <a
+                        href="/accountant/requests"
+                        className="rounded-xl border border-gray-800 bg-gray-950 p-6"
+                    >
+                        <h2 className="text-xl font-semibold">
+                            Purchase Approvals
+                        </h2>
+
+                        <p className="mt-2 text-gray-400">
+                            Review procurement requests
+                        </p>
+                    </a>
+                )}
+
+                {profile?.role === "storekeeper" && (
+                    <>
+                        <a
+                            href="/storekeeper/receipts"
+                            className="rounded-xl border border-gray-800 bg-gray-950 p-6"
+                        >
+                            <h2 className="text-xl font-semibold">
+                                Incoming Stock
+                            </h2>
+
+                            <p className="mt-2 text-gray-400">
+                                Verify approved purchases
+                            </p>
+                        </a>
+
+                        <a
+                            href="/inventory"
+                            className="rounded-xl border border-gray-800 bg-gray-950 p-6"
+                        >
+                            <h2 className="text-xl font-semibold">
+                                Inventory
+                            </h2>
+
+                            <p className="mt-2 text-gray-400">
+                                View current stock
+                            </p>
+                        </a>
+                    </>
+                )}
             </div>
         </div>
     </main>
