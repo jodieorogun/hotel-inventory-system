@@ -17,6 +17,13 @@ type RequestLine = {
     unitPrice: string;
 };
 
+type NewItemForm = {
+    lineIndex: number;
+    name: string;
+    category: string;
+    unit: string;
+};
+
 export default function NewProcurementRequestPage() {
     const router = useRouter();
 
@@ -28,9 +35,13 @@ export default function NewProcurementRequestPage() {
             unitPrice: "",
         },
     ]);
+    const [itemSearches, setItemSearches] = useState([""]);
+    const [openItemSearchIndex, setOpenItemSearchIndex] = useState<number | null>(null);
+    const [newItemForm, setNewItemForm] = useState<NewItemForm | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [addingItem, setAddingItem] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
@@ -78,6 +89,7 @@ export default function NewProcurementRequestPage() {
                 unitPrice: "",
             },
         ]);
+        setItemSearches([...itemSearches, ""]);
     }
 
     function removeRequestLine(index: number) {
@@ -90,20 +102,113 @@ export default function NewProcurementRequestPage() {
         );
 
         setRequestLines(updatedLines);
+        setItemSearches((searches) =>
+            searches.filter((_, lineIndex) => lineIndex !== index)
+        );
+        setOpenItemSearchIndex(null);
+        setNewItemForm(null);
+    }
+
+    function updateItemSearch(index: number, value: string) {
+        setItemSearches((searches) =>
+            searches.map((search, lineIndex) =>
+                lineIndex === index ? value : search
+            )
+        );
+        updateRequestLine(index, "itemId", "");
+        setOpenItemSearchIndex(index);
+    }
+
+    function selectItem(index: number, item: Item) {
+        updateRequestLine(index, "itemId", String(item.id));
+        setItemSearches((searches) =>
+            searches.map((search, lineIndex) =>
+                lineIndex === index ? item.name : search
+            )
+        );
+        setOpenItemSearchIndex(null);
+        setNewItemForm(null);
+    }
+
+    async function handleAddItem(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!newItemForm) {
+            return;
+        }
+
+        const name = newItemForm.name.trim();
+        const category = newItemForm.category.trim();
+        const unit = newItemForm.unit.trim();
+
+        if (!name || !category || !unit) {
+            setErrorMessage("Please complete the new item fields.");
+            return;
+        }
+
+        const existingItem = items.find(
+            (item) => item.name.trim().toLowerCase() === name.toLowerCase()
+        );
+
+        if (existingItem) {
+            selectItem(newItemForm.lineIndex, existingItem);
+            setErrorMessage(
+                `${existingItem.name} already exists and has been selected.`
+            );
+            return;
+        }
+
+        setAddingItem(true);
+        setErrorMessage("");
+
+        const { data, error } = await supabase
+            .from("items")
+            .insert({
+                name,
+                category,
+                unit,
+                current_quantity: 0,
+            })
+            .select("id, name, unit")
+            .single();
+
+        setAddingItem(false);
+
+        if (error || !data) {
+            console.error("Error adding inventory item:", error);
+            setErrorMessage("Could not add the new inventory item.");
+            return;
+        }
+
+        setItems((currentItems) =>
+            [...currentItems, data].sort((first, second) =>
+                first.name.localeCompare(second.name)
+            )
+        );
+        selectItem(newItemForm.lineIndex, data);
     }
 
     async function handleSubmit() {
         setErrorMessage("");
 
+        const validItemIds = new Set(items.map((item) => String(item.id)));
+        const hasInvalidItem = requestLines.some(
+            (line) => !line.itemId || !validItemIds.has(line.itemId)
+        );
+
+        if (hasInvalidItem) {
+            setErrorMessage(
+                "Please select an existing item or add it as a new item."
+            );
+            return;
+        }
+
         const hasEmptyFields = requestLines.some(
-            (line) =>
-                !line.itemId ||
-                !line.quantity ||
-                !line.unitPrice
+            (line) => !line.quantity || !line.unitPrice
         );
 
         if (hasEmptyFields) {
-            setErrorMessage("Please complete all item fields.");
+            setErrorMessage("Please complete the quantity and unit price fields.");
             return;
         }
 
@@ -220,35 +325,88 @@ export default function NewProcurementRequestPage() {
                             className="surface-card p-6 lg:p-7"
                         >
                             <div className="grid gap-4 md:grid-cols-3">
-                                <div>
-                                    <label className="form-label">
+                                <div className="relative">
+                                    <label
+                                        className="form-label"
+                                        htmlFor={`item-${index}`}
+                                    >
                                         Item
                                     </label>
 
-                                    <select
-                                        value={line.itemId}
+                                    <input
+                                        id={`item-${index}`}
+                                        type="text"
+                                        role="combobox"
+                                        aria-expanded={openItemSearchIndex === index}
+                                        aria-controls={`item-results-${index}`}
+                                        autoComplete="off"
+                                        value={itemSearches[index] ?? ""}
+                                        onFocus={() => setOpenItemSearchIndex(index)}
+                                        onBlur={() => setOpenItemSearchIndex(null)}
                                         onChange={(event) =>
-                                            updateRequestLine(
+                                            updateItemSearch(
                                                 index,
-                                                "itemId",
                                                 event.target.value
                                             )
                                         }
                                         className="form-control"
-                                    >
-                                        <option value="">
-                                            Select item
-                                        </option>
+                                        placeholder="Search inventory items"
+                                    />
 
-                                        {items.map((item) => (
-                                            <option
-                                                key={item.id}
-                                                value={item.id}
+                                    {openItemSearchIndex === index && (() => {
+                                        const search = (itemSearches[index] ?? "")
+                                            .trim()
+                                            .toLowerCase();
+                                        const matches = items.filter((item) =>
+                                            item.name.toLowerCase().includes(search)
+                                        );
+
+                                        return (
+                                            <div
+                                                id={`item-results-${index}`}
+                                                role="listbox"
+                                                className="absolute z-10 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-xl"
                                             >
-                                                {item.name} ({item.unit})
-                                            </option>
-                                        ))}
-                                    </select>
+                                                {matches.map((item) => (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        role="option"
+                                                        aria-selected={line.itemId === String(item.id)}
+                                                        onMouseDown={(event) => event.preventDefault()}
+                                                        onClick={() => selectItem(index, item)}
+                                                        className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--surface-hover)]"
+                                                    >
+                                                        {item.name} ({item.unit})
+                                                    </button>
+                                                ))}
+
+                                                {search && matches.length === 0 && (
+                                                    <div className="px-3 py-2 text-sm">
+                                                        <p className="text-muted">
+                                                            No existing item found
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            onMouseDown={(event) => event.preventDefault()}
+                                                            onClick={() => {
+                                                                setNewItemForm({
+                                                                    lineIndex: index,
+                                                                    name: itemSearches[index].trim(),
+                                                                    category: "",
+                                                                    unit: "",
+                                                                });
+                                                                setOpenItemSearchIndex(null);
+                                                            }}
+                                                            className="mt-2 font-medium text-[var(--accent)] hover:underline"
+                                                        >
+                                                            + Add &quot;{itemSearches[index].trim()}&quot; as a new item
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div>
@@ -293,6 +451,82 @@ export default function NewProcurementRequestPage() {
                                     />
                                 </div>
                             </div>
+
+                            {newItemForm?.lineIndex === index && (
+                                <form
+                                    onSubmit={handleAddItem}
+                                    className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+                                >
+                                    <h2 className="font-semibold">Add New Item</h2>
+
+                                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                                        <div>
+                                            <label className="form-label">Name</label>
+                                            <input
+                                                type="text"
+                                                value={newItemForm.name}
+                                                onChange={(event) =>
+                                                    setNewItemForm({
+                                                        ...newItemForm,
+                                                        name: event.target.value,
+                                                    })
+                                                }
+                                                className="form-control"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">Category</label>
+                                            <input
+                                                type="text"
+                                                value={newItemForm.category}
+                                                onChange={(event) =>
+                                                    setNewItemForm({
+                                                        ...newItemForm,
+                                                        category: event.target.value,
+                                                    })
+                                                }
+                                                className="form-control"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">Unit</label>
+                                            <input
+                                                type="text"
+                                                value={newItemForm.unit}
+                                                onChange={(event) =>
+                                                    setNewItemForm({
+                                                        ...newItemForm,
+                                                        unit: event.target.value,
+                                                    })
+                                                }
+                                                className="form-control"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex gap-3">
+                                        <button
+                                            type="submit"
+                                            disabled={addingItem}
+                                            className="primary-action"
+                                        >
+                                            {addingItem ? "Adding..." : "Add Item"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewItemForm(null)}
+                                            className="secondary-action"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
 
                             {requestLines.length > 1 && (
                                 <button
