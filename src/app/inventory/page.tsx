@@ -9,11 +9,11 @@ export default async function InventoryPage() {
     if (error) {
         console.error("Error fetching items:", error);
         return (
-            <main className="min-h-screen bg-black p-8 text-white">
-                <div className="mx-auto max-w-5xl">
+            <main className="app-page">
+                <div className="mx-auto max-w-7xl">
                     <AppHeader />
 
-                    <p className="rounded-xl border border-red-900 bg-red-950 p-5 text-red-300">
+                    <p className="error-message">
                         Could not load inventory items.
                     </p>
                 </div>
@@ -22,35 +22,35 @@ export default async function InventoryPage() {
     }
 
     return (
-        <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-5xl">
+        <main className="app-page">
+            <div className="mx-auto max-w-7xl">
                 <AppHeader />
 
-                <h1 className="mb-2 text-3xl font-bold">
+                <h1 className="page-title mb-2">
                     Inventory
                 </h1>
 
-                <p className="mb-8 text-gray-400">
+                <p className="page-description mb-8">
                     Current hotel stock
                 </p>
 
-                <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-sm">
-                    <table className="w-full text-white">
-                        <thead className="bg-gray-900 text-white">
+                <div className="surface-card overflow-x-auto">
+                    <table className="w-full min-w-150 text-[var(--foreground)]">
+                        <thead className="bg-[var(--surface-subtle)] text-[var(--foreground)]">
                             <tr>
-                                <th className="px-6 py-4 text-left">
+                                <th className="px-7 py-5 text-left">
                                     Item
                                 </th>
 
-                                <th className="px-6 py-4 text-left">
+                                <th className="px-7 py-5 text-left">
                                     Category
                                 </th>
 
-                                <th className="px-6 py-4 text-left">
+                                <th className="px-7 py-5 text-left">
                                     Quantity
                                 </th>
 
-                                <th className="px-6 py-4 text-left">
+                                <th className="px-7 py-5 text-left">
                                     Unit
                                 </th>
                             </tr>
@@ -60,21 +60,21 @@ export default async function InventoryPage() {
                             {items?.map((item) => (
                                 <tr
                                     key={item.id}
-                                    className="border-t border-gray-800"
+                                    className="data-row"
                                 >
-                                    <td className="px-6 py-4 font-medium text-white">
+                                    <td className="px-7 py-5 font-medium text-[var(--foreground)]">
                                         {item.name}
                                     </td>
 
-                                    <td className="px-6 py-4 text-gray-300">
+                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {item.category}
                                     </td>
 
-                                    <td className="px-6 py-4 text-gray-300">
+                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {item.current_quantity}
                                     </td>
 
-                                    <td className="px-6 py-4 text-gray-300">
+                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {item.unit}
                                     </td>
                                 </tr>

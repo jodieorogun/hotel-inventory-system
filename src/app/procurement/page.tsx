@@ -52,19 +52,23 @@ const statusDetails: Record<
 > = {
     pending_accountant: {
         label: "Pending Accountant Approval",
-        className: "border-amber-900 bg-amber-950 text-amber-300",
+        className:
+            "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
     approved: {
         label: "Approved",
-        className: "border-blue-900 bg-blue-950 text-blue-300",
+        className:
+            "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300",
     },
     rejected: {
         label: "Rejected",
-        className: "border-red-900 bg-red-950 text-red-300",
+        className:
+            "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
     },
     received: {
         label: "Received",
-        className: "border-emerald-900 bg-emerald-950 text-emerald-300",
+        className:
+            "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
     },
 };
 
@@ -79,7 +83,8 @@ function formatDate(value: string) {
 function formatStatus(status: string) {
     return statusDetails[status] ?? {
         label: status.replaceAll("_", " "),
-        className: "border-gray-700 bg-gray-900 text-gray-300",
+        className:
+            "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300",
     };
 }
 
@@ -223,58 +228,58 @@ export default function ProcurementRequestsPage() {
 
     if (loading) {
         return (
-            <main className="min-h-screen bg-black p-8 text-white">
-                <div className="mx-auto max-w-5xl">
+            <main className="app-page">
+                <div className="mx-auto max-w-7xl">
                     <AppHeader />
 
-                    <p className="text-gray-400">Loading your requests...</p>
+                    <p className="text-muted">Loading your requests...</p>
                 </div>
             </main>
         );
     }
 
     return (
-        <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-5xl">
+        <main className="app-page">
+            <div className="mx-auto max-w-7xl">
                 <AppHeader />
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold">My Requests</h1>
+                        <h1 className="page-title">My Requests</h1>
 
-                        <p className="mt-2 text-gray-400">
+                        <p className="page-description mt-2">
                             Track your submitted purchase requests.
                         </p>
                     </div>
 
                     <Link
                         href="/procurement/new"
-                        className="rounded-lg bg-white px-5 py-3 text-center font-medium text-black hover:bg-gray-200"
+                        className="primary-action text-center"
                     >
                         New Purchase Request
                     </Link>
                 </div>
 
                 {errorMessage && (
-                    <div className="mt-8 rounded-xl border border-red-900 bg-red-950 p-5 text-red-300">
+                    <div className="error-message mt-8">
                         {errorMessage}
                     </div>
                 )}
 
                 {!errorMessage && requests.length === 0 && (
-                    <div className="mt-8 rounded-xl border border-gray-800 bg-gray-950 p-8 text-center">
+                    <div className="surface-card mt-8 p-8 text-center">
                         <h2 className="text-xl font-semibold">
                             No purchase requests yet
                         </h2>
 
-                        <p className="mt-2 text-gray-400">
+                        <p className="text-muted mt-2">
                             Your submitted requests will appear here.
                         </p>
                     </div>
                 )}
 
                 {!errorMessage && requests.length > 0 && (
-                    <div className="mt-8 space-y-5">
+                    <div className="mt-8 grid gap-6 lg:grid-cols-2">
                         {requests.map((request) => {
                             const status = formatStatus(request.status);
                             const total = request.lines.reduce(
@@ -286,15 +291,15 @@ export default function ProcurementRequestsPage() {
                             return (
                                 <article
                                     key={request.id}
-                                    className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950"
+                                    className="surface-card h-full overflow-hidden"
                                 >
-                                    <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="flex flex-col gap-5 p-7 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <h2 className="text-xl font-semibold">
                                                 Request #{request.id}
                                             </h2>
 
-                                            <p className="mt-2 text-sm text-gray-400">
+                                            <p className="text-muted mt-2 text-sm">
                                                 {request.lines.length}{" "}
                                                 {request.lines.length === 1
                                                     ? "item"
@@ -317,23 +322,23 @@ export default function ProcurementRequestsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="border-t border-gray-800">
+                                    <div className="border-t border-[var(--border)]">
                                         {request.lines.length === 0 ? (
-                                            <p className="px-6 py-4 text-sm text-gray-500">
+                                            <p className="text-muted px-6 py-4 text-sm">
                                                 No items were found for this request.
                                             </p>
                                         ) : (
                                             request.lines.map((line) => (
                                                 <div
                                                     key={line.id}
-                                                    className="grid gap-2 border-b border-gray-800 px-6 py-4 last:border-b-0 sm:grid-cols-[1fr_auto] sm:items-center"
+                                                    className="grid gap-2 border-b border-[var(--border)] px-6 py-4 last:border-b-0 sm:grid-cols-[1fr_auto] sm:items-center"
                                                 >
                                                     <div>
                                                         <p className="font-medium">
                                                             {line.itemName}
                                                         </p>
 
-                                                        <p className="mt-1 text-sm text-gray-400">
+                                                        <p className="text-muted mt-1 text-sm">
                                                             {line.quantity}{" "}
                                                             {line.unit} ×{" "}
                                                             {currencyFormatter.format(
@@ -342,7 +347,7 @@ export default function ProcurementRequestsPage() {
                                                         </p>
                                                     </div>
 
-                                                    <p className="font-medium text-gray-200">
+                                                    <p className="font-medium text-[var(--muted-strong)]">
                                                         {currencyFormatter.format(
                                                             line.quantity *
                                                                 line.unitPrice

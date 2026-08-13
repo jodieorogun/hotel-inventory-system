@@ -27,17 +27,17 @@ export default function AddInventoryItemPage() {
     }
 
     return (
-        <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-xl">
+        <main className="app-page">
+            <div className="mx-auto max-w-3xl">
                 <AppHeader />
 
-                <h1 className="mb-8 text-3xl font-bold">
+                <h1 className="page-title mb-8">
                     Add Inventory Item
                 </h1>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="mb-2 block" htmlFor="item-name">
+                        <label className="form-label" htmlFor="item-name">
                             Item name
                         </label>
 
@@ -46,14 +46,14 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={name}
                             onChange={(event) => setName(event.target.value)}
-                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                            className="form-control"
                             placeholder="e.g. Toilet Roll"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="mb-2 block" htmlFor="item-category">
+                        <label className="form-label" htmlFor="item-category">
                             Category
                         </label>
 
@@ -62,14 +62,14 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={category}
                             onChange={(event) => setCategory(event.target.value)}
-                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                            className="form-control"
                             placeholder="e.g. Cleaning"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="mb-2 block" htmlFor="item-unit">
+                        <label className="form-label" htmlFor="item-unit">
                             Unit
                         </label>
 
@@ -78,7 +78,7 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={unit}
                             onChange={(event) => setUnit(event.target.value)}
-                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                            className="form-control"
                             placeholder="e.g. roll"
                             required
                         />
@@ -86,7 +86,7 @@ export default function AddInventoryItemPage() {
 
                     <button
                         type="submit"
-                        className="w-full rounded-lg bg-white px-4 py-3 font-semibold text-black"
+                        className="primary-action w-full"
                     >
                         Add Item
                     </button>

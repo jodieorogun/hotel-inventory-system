@@ -30,57 +30,69 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-black p-8 text-white">
-            <div className="w-full max-w-md">
-                <h1 className="mb-8 text-3xl font-bold">
-                    Hotel Inventory
-                </h1>
+        <main className="app-page flex items-center justify-center">
+            <div className="w-full max-w-lg">
+                <div className="mb-8 text-center">
+                    <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                        Hotel operations
+                    </p>
+
+                    <h1 className="page-title">Welcome back</h1>
+
+                    <p className="page-description mt-3">
+                        Sign in to manage procurement and hotel inventory.
+                    </p>
+                </div>
 
                 <form
                     onSubmit={handleLogin}
-                    className="space-y-6"
+                    className="surface-card space-y-6 p-6 sm:p-8"
                 >
                     <div>
-                        <label className="mb-2 block">
+                        <label className="form-label" htmlFor="email">
                             Email
                         </label>
 
                         <input
+                            id="email"
                             type="email"
                             value={email}
                             onChange={(event) =>
                                 setEmail(event.target.value)
                             }
-                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3"
+                            className="form-control"
+                            autoComplete="email"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="mb-2 block">
+                        <label className="form-label" htmlFor="password">
                             Password
                         </label>
 
                         <input
+                            id="password"
                             type="password"
                             value={password}
                             onChange={(event) =>
                                 setPassword(event.target.value)
                             }
-                            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3"
+                            className="form-control"
+                            autoComplete="current-password"
                             required
                         />
                     </div>
 
                     {errorMessage && (
-                        <p className="text-red-400">
+                        <p className="error-message">
                             {errorMessage}
                         </p>
                     )}
 
                     <button
                         type="submit"
-                        className="w-full rounded-lg bg-white px-4 py-3 font-semibold text-black"
+                        className="primary-action w-full"
                     >
                         Sign In
                     </button>
