@@ -113,7 +113,7 @@ export default function ProcurementRequestsPage() {
 
             const { data: requestData, error: requestsError } =
                 await supabase
-                    .from("procurement_requests")
+                    .from("purchase_requests")
                     .select("id, status, created_at, rejection_reason")
                     .eq("requested_by", user.id)
                     .order("created_at", { ascending: false });
@@ -146,7 +146,7 @@ export default function ProcurementRequestsPage() {
             const requestIds = requestRows.map((request) => request.id);
 
             const { data: lineData, error: linesError } = await supabase
-                .from("procurement_requests_items")
+                .from("purchase_request_items")
                 .select("id, request_id, item_id, quantity, unit_price")
                 .in("request_id", requestIds)
                 .order("id", { ascending: true });

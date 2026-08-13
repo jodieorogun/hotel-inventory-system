@@ -240,7 +240,7 @@ export default function NewProcurementRequestPage() {
 
         const { data: request, error: requestError } =
             await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .insert({
                     requested_by: user.id,
                     status: "pending_accountant",
@@ -270,7 +270,7 @@ export default function NewProcurementRequestPage() {
         }));
 
         const { error: itemsError } = await supabase
-            .from("procurement_requests_items")
+            .from("purchase_request_items")
             .insert(requestItems);
 
         if (itemsError) {

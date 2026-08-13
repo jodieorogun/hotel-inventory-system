@@ -126,7 +126,7 @@ export default function AccountantApprovalHistoryPage() {
             }
 
             const { data: requestData, error: requestsError } = await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .select(
                     "id, status, created_at, requested_by, accountant_approved_at"
                 )
@@ -162,7 +162,7 @@ export default function AccountantApprovalHistoryPage() {
             ];
             const [linesResult, usersResult] = await Promise.all([
                 supabase
-                    .from("procurement_requests_items")
+                    .from("purchase_request_items")
                     .select("id, request_id, quantity, unit_price")
                     .in("request_id", requestIds),
                 supabase

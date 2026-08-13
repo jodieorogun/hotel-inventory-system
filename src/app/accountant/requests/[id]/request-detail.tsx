@@ -148,7 +148,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             }
 
             const { data: requestData, error: requestError } = await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .select(
                     "id, status, created_at, requested_by, rejection_reason"
                 )
@@ -178,7 +178,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             const requestRow = requestData as RequestRow;
             const [linesResult, requesterResult] = await Promise.all([
                 supabase
-                    .from("procurement_requests_items")
+                    .from("purchase_request_items")
                     .select("id, item_id, quantity, unit_price")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
@@ -298,7 +298,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         }
 
         const { data, error } = await supabase
-            .from("procurement_requests")
+            .from("purchase_requests")
             .update({
                 status,
                 accountant_approved_by: user.id,
