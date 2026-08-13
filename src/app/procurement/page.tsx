@@ -10,6 +10,7 @@ type ProcurementRequest = {
     id: number;
     status: string;
     createdAt: string;
+    rejectionReason: string | null;
     lines: RequestLine[];
 };
 
@@ -25,6 +26,7 @@ type RequestRow = {
     id: number;
     status: string;
     created_at: string;
+    rejection_reason: string | null;
 };
 
 type RequestLineRow = {
@@ -112,7 +114,7 @@ export default function ProcurementRequestsPage() {
             const { data: requestData, error: requestsError } =
                 await supabase
                     .from("procurement_requests")
-                    .select("id, status, created_at")
+                    .select("id, status, created_at, rejection_reason")
                     .eq("requested_by", user.id)
                     .order("created_at", { ascending: false });
 
@@ -198,6 +200,7 @@ export default function ProcurementRequestsPage() {
                 id: request.id,
                 status: request.status,
                 createdAt: request.created_at,
+                rejectionReason: request.rejection_reason,
                 lines: lineRows
                     .filter((line) => line.request_id === request.id)
                     .map((line) => {
@@ -357,6 +360,18 @@ export default function ProcurementRequestsPage() {
                                             ))
                                         )}
                                     </div>
+
+                                    {request.status === "rejected" &&
+                                        request.rejectionReason && (
+                                            <div className="border-t border-[var(--danger-border)] bg-[var(--danger-soft)] px-6 py-5">
+                                                <p className="text-sm font-semibold text-[var(--danger)]">
+                                                    Reason for rejection
+                                                </p>
+                                                <p className="mt-2 whitespace-pre-wrap text-sm">
+                                                    {request.rejectionReason}
+                                                </p>
+                                            </div>
+                                        )}
                                 </article>
                             );
                         })}
