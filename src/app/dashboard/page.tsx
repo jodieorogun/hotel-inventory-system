@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
@@ -108,18 +109,33 @@ export default function DashboardPage() {
                     )}
 
                     {profile?.role === "accountant" && (
-                        <a
-                            href="/accountant/requests"
-                            className="surface-card interactive-card p-7 lg:p-8"
-                        >
-                            <h2 className="text-xl font-semibold">
-                                Purchase Approvals
-                            </h2>
+                        <>
+                            <Link
+                                href="/accountant/requests"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Purchase Approvals
+                                </h2>
 
-                            <p className="text-muted mt-2">
-                                Review procurement requests
-                            </p>
-                        </a>
+                                <p className="text-muted mt-2">
+                                    Review procurement requests
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/accountant/approvals"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Approval History
+                                </h2>
+
+                                <p className="text-muted mt-2">
+                                    View requests you have reviewed
+                                </p>
+                            </Link>
+                        </>
                     )}
 
                     {profile?.role === "storekeeper" && (
