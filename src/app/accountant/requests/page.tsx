@@ -96,7 +96,7 @@ export default function AccountantRequestsPage() {
             }
 
             const { data: requestData, error: requestsError } = await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .select("id, status, created_at, requested_by")
                 .eq("status", "pending_accountant")
                 .order("created_at", { ascending: true });
@@ -130,7 +130,7 @@ export default function AccountantRequestsPage() {
 
             const [linesResult, usersResult] = await Promise.all([
                 supabase
-                    .from("procurement_requests_items")
+                    .from("purchase_requests_items")
                     .select("id, request_id, quantity, unit_price")
                     .in("request_id", requestIds),
                 supabase

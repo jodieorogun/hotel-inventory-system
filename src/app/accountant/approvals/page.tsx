@@ -65,6 +65,11 @@ const statusDetails: Record<
         className:
             "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300",
     },
+    receipt_issue: {
+        label: "Receipt Issue",
+        className:
+            "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+    },
 };
 
 function formatDate(value: string) {
@@ -126,12 +131,17 @@ export default function AccountantApprovalHistoryPage() {
             }
 
             const { data: requestData, error: requestsError } = await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .select(
                     "id, status, created_at, requested_by, accountant_approved_at"
                 )
                 .eq("accountant_approved_by", user.id)
-                .in("status", ["approved", "rejected", "received"])
+                .in("status", [
+                    "approved",
+                    "rejected",
+                    "received",
+                    "receipt_issue",
+                ])
                 .order("accountant_approved_at", { ascending: false });
 
             if (requestsError) {
@@ -162,7 +172,7 @@ export default function AccountantApprovalHistoryPage() {
             ];
             const [linesResult, usersResult] = await Promise.all([
                 supabase
-                    .from("procurement_requests_items")
+                    .from("purchase_requests_items")
                     .select("id, request_id, quantity, unit_price")
                     .in("request_id", requestIds),
                 supabase

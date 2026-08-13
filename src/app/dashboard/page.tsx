@@ -140,7 +140,7 @@ export default function DashboardPage() {
 
                     {profile?.role === "storekeeper" && (
                         <>
-                            <a
+                            <Link
                                 href="/storekeeper/receipts"
                                 className="surface-card interactive-card p-7 lg:p-8"
                             >
@@ -151,7 +151,7 @@ export default function DashboardPage() {
                                 <p className="text-muted mt-2">
                                     Verify approved purchases
                                 </p>
-                            </a>
+                            </Link>
 
                             <a
                                 href="/inventory"

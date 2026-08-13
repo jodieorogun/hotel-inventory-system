@@ -240,10 +240,15 @@ export default function NewProcurementRequestPage() {
 
         const { data: request, error: requestError } =
             await supabase
-                .from("procurement_requests")
+                .from("purchase_requests")
                 .insert({
                     requested_by: user.id,
                     status: "pending_accountant",
+                    accountant_approved_by: null,
+                    accountant_approved_at: null,
+                    storekeeper_verified_by: null,
+                    storekeeper_verified_at: null,
+                    rejection_reason: null,
                 })
                 .select("id")
                 .single();
@@ -270,7 +275,7 @@ export default function NewProcurementRequestPage() {
         }));
 
         const { error: itemsError } = await supabase
-            .from("procurement_requests_items")
+            .from("purchase_requests_items")
             .insert(requestItems);
 
         if (itemsError) {
