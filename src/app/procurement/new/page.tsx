@@ -188,11 +188,11 @@ export default function NewProcurementRequestPage() {
 
     if (loading) {
         return (
-            <main className="min-h-screen bg-black p-8 text-white">
-                <div className="mx-auto max-w-3xl">
+            <main className="app-page">
+                <div className="mx-auto max-w-5xl">
                     <AppHeader />
 
-                    <p className="text-gray-400">
+                    <p className="text-muted">
                         Loading inventory...
                     </p>
                 </div>
@@ -201,15 +201,15 @@ export default function NewProcurementRequestPage() {
     }
 
     return (
-        <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-3xl">
+        <main className="app-page">
+            <div className="mx-auto max-w-5xl">
                 <AppHeader />
 
-                <h1 className="text-3xl font-bold">
+                <h1 className="page-title">
                     New Purchase Request
                 </h1>
 
-                <p className="mt-2 text-gray-400">
+                <p className="page-description mt-2">
                     Add the items you want to purchase.
                 </p>
 
@@ -217,11 +217,11 @@ export default function NewProcurementRequestPage() {
                     {requestLines.map((line, index) => (
                         <div
                             key={index}
-                            className="rounded-xl border border-gray-800 bg-gray-950 p-5"
+                            className="surface-card p-6 lg:p-7"
                         >
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div>
-                                    <label className="mb-2 block text-sm text-gray-400">
+                                    <label className="form-label">
                                         Item
                                     </label>
 
@@ -234,7 +234,7 @@ export default function NewProcurementRequestPage() {
                                                 event.target.value
                                             )
                                         }
-                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                                        className="form-control"
                                     >
                                         <option value="">
                                             Select item
@@ -252,7 +252,7 @@ export default function NewProcurementRequestPage() {
                                 </div>
 
                                 <div>
-                                    <label className="mb-2 block text-sm text-gray-400">
+                                    <label className="form-label">
                                         Quantity
                                     </label>
 
@@ -267,13 +267,13 @@ export default function NewProcurementRequestPage() {
                                                 event.target.value
                                             )
                                         }
-                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                                        className="form-control"
                                         placeholder="e.g. 10"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="mb-2 block text-sm text-gray-400">
+                                    <label className="form-label">
                                         Unit Price
                                     </label>
 
@@ -288,7 +288,7 @@ export default function NewProcurementRequestPage() {
                                                 event.target.value
                                             )
                                         }
-                                        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white"
+                                        className="form-control"
                                         placeholder="e.g. 5000"
                                     />
                                 </div>
@@ -300,7 +300,7 @@ export default function NewProcurementRequestPage() {
                                     onClick={() =>
                                         removeRequestLine(index)
                                     }
-                                    className="mt-4 text-sm text-red-400"
+                                    className="mt-4 text-sm font-medium text-[var(--danger)] hover:underline"
                                 >
                                     Remove item
                                 </button>
@@ -312,13 +312,13 @@ export default function NewProcurementRequestPage() {
                 <button
                     type="button"
                     onClick={addRequestLine}
-                    className="mt-4 rounded-lg border border-gray-700 px-4 py-2 hover:bg-gray-900"
+                    className="secondary-action mt-4"
                 >
                     + Add another item
                 </button>
 
                 {errorMessage && (
-                    <p className="mt-6 rounded-lg border border-red-900 bg-red-950 p-4 text-red-300">
+                    <p className="error-message mt-6">
                         {errorMessage}
                     </p>
                 )}
@@ -327,7 +327,7 @@ export default function NewProcurementRequestPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={submitting}
-                    className="mt-8 w-full rounded-lg bg-white px-4 py-3 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                    className="primary-action mt-8 w-full"
                 >
                     {submitting
                         ? "Submitting..."

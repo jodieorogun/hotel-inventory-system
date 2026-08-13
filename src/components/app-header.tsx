@@ -11,6 +11,8 @@ type UserProfile = {
     role: string;
 };
 
+type ThemePreference = "light" | "dark" | "system";
+
 function formatRole(role: string) {
     return role.replaceAll("_", " ");
 }
@@ -33,6 +35,37 @@ export default function AppHeader() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const [theme, setTheme] = useState<ThemePreference>(() => {
+        if (typeof window === "undefined") {
+            return "system";
+        }
+
+        const savedTheme = localStorage.getItem("hotel-inventory-theme");
+
+        return savedTheme === "light" ||
+            savedTheme === "dark" ||
+            savedTheme === "system"
+            ? savedTheme
+            : "system";
+    });
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+        function applyTheme() {
+            const isDark =
+                theme === "dark" ||
+                (theme === "system" && mediaQuery.matches);
+
+            document.documentElement.classList.toggle("dark", isDark);
+            document.documentElement.classList.toggle("light", !isDark);
+        }
+
+        applyTheme();
+        mediaQuery.addEventListener("change", applyTheme);
+
+        return () => mediaQuery.removeEventListener("change", applyTheme);
+    }, [theme]);
 
     useEffect(() => {
         let ignore = false;
@@ -114,11 +147,16 @@ export default function AppHeader() {
         router.refresh();
     }
 
+    function chooseTheme(preference: ThemePreference) {
+        localStorage.setItem("hotel-inventory-theme", preference);
+        setTheme(preference);
+    }
+
     return (
-        <header className="mb-10 flex items-center justify-between gap-4 border-b border-gray-800 pb-5">
+        <header className="app-header">
             <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white"
+                className="dashboard-link"
             >
                 {pathname === "/dashboard" ? (
                     "Dashboard"
@@ -136,19 +174,19 @@ export default function AppHeader() {
                     onClick={() => setMenuOpen((open) => !open)}
                     aria-expanded={menuOpen}
                     aria-haspopup="menu"
-                    className="flex items-center gap-3 rounded-full border border-gray-700 bg-gray-950 py-1.5 pr-3 pl-1.5 text-left hover:bg-gray-900"
+                    className="focus-ring flex items-center gap-3 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] py-1.5 pr-3 pl-1.5 text-left shadow-sm transition-colors hover:bg-[var(--surface-hover)]"
                 >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-bold text-black">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-bold text-[var(--accent-foreground)]">
                         {profile ? getInitials(profile.name) : "…"}
                     </span>
 
                     <span className="hidden sm:block">
-                        <span className="block max-w-40 truncate text-sm font-medium text-white">
+                        <span className="block max-w-40 truncate text-sm font-semibold text-[var(--foreground)]">
                             {profile?.name ?? "Loading..."}
                         </span>
 
                         {profile && (
-                            <span className="block text-xs capitalize text-gray-400">
+                            <span className="block text-xs capitalize text-[var(--muted)]">
                                 {formatRole(profile.role)}
                             </span>
                         )}
@@ -156,7 +194,7 @@ export default function AppHeader() {
 
                     <span
                         aria-hidden="true"
-                        className={`text-xs text-gray-400 transition-transform ${
+                        className={`text-xs text-[var(--muted)] transition-transform ${
                             menuOpen ? "rotate-180" : ""
                         }`}
                     >
@@ -167,29 +205,64 @@ export default function AppHeader() {
                 {menuOpen && (
                     <div
                         role="menu"
-                        className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 shadow-2xl"
+                        className="absolute right-0 z-20 mt-2 w-72 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
                     >
-                        <div className="border-b border-gray-800 px-4 py-4">
-                            <p className="truncate font-medium text-white">
+                        <div className="border-b border-[var(--border)] px-4 py-4">
+                            <p className="truncate font-semibold text-[var(--foreground)]">
                                 {profile?.name ?? "Hotel staff"}
                             </p>
 
-                            <p className="mt-1 truncate text-sm text-gray-400">
+                            <p className="mt-1 truncate text-sm text-[var(--muted)]">
                                 {profile?.email}
                             </p>
 
                             {profile && (
-                                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                                     {formatRole(profile.role)}
                                 </p>
                             )}
+                        </div>
+
+                        <div className="border-b border-[var(--border)] px-4 py-4">
+                            <p
+                                id="theme-label"
+                                className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                            >
+                                Appearance
+                            </p>
+
+                            <div
+                                role="group"
+                                aria-labelledby="theme-label"
+                                className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--surface-subtle)] p-1"
+                            >
+                                {(["light", "dark", "system"] as const).map(
+                                    (preference) => (
+                                        <button
+                                            key={preference}
+                                            type="button"
+                                            onClick={() =>
+                                                chooseTheme(preference)
+                                            }
+                                            aria-pressed={theme === preference}
+                                            className={`focus-ring rounded-lg px-2 py-2 text-xs font-semibold capitalize transition-colors ${
+                                                theme === preference
+                                                    ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
+                                                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                                            }`}
+                                        >
+                                            {preference}
+                                        </button>
+                                    )
+                                )}
+                            </div>
                         </div>
 
                         <Link
                             href="/dashboard"
                             role="menuitem"
                             onClick={() => setMenuOpen(false)}
-                            className="block px-4 py-3 text-sm text-gray-300 hover:bg-gray-900 hover:text-white"
+                            className="focus-ring block px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
                         >
                             Dashboard
                         </Link>
@@ -199,7 +272,7 @@ export default function AppHeader() {
                             role="menuitem"
                             onClick={handleLogout}
                             disabled={loggingOut}
-                            className="w-full border-t border-gray-800 px-4 py-3 text-left text-sm text-red-400 hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="focus-ring w-full border-t border-[var(--border)] px-4 py-3 text-left text-sm font-medium text-[var(--danger)] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {loggingOut ? "Logging out..." : "Log Out"}
                         </button>

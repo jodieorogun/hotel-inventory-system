@@ -49,11 +49,11 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <main className="min-h-screen bg-black p-8 text-white">
-                <div className="mx-auto max-w-5xl">
+            <main className="app-page">
+                <div className="mx-auto max-w-7xl">
                     <AppHeader />
 
-                    <p className="text-gray-400">
+                    <p className="text-muted">
                         Loading...
                     </p>
                 </div>
@@ -62,45 +62,45 @@ export default function DashboardPage() {
     }
 
     return (
-        <main className="min-h-screen bg-black p-8 text-white">
-            <div className="mx-auto max-w-5xl">
+        <main className="app-page">
+            <div className="mx-auto max-w-7xl">
                 <AppHeader />
 
                 <div>
-                    <h1 className="text-3xl font-bold">
+                    <h1 className="page-title">
                         Welcome, {profile?.name}
                     </h1>
 
-                    <p className="mt-2 text-gray-400">
-                        Role: {profile?.role}
+                    <p className="page-description mt-2 capitalize">
+                        {profile?.role.replaceAll("_", " ")} workspace
                     </p>
                 </div>
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="mt-10 grid gap-6 sm:grid-cols-2">
                     {profile?.role === "procurement" && (
                         <>
                             <a
                                 href="/procurement/new"
-                                className="rounded-xl border border-gray-800 bg-gray-950 p-6 hover:bg-gray-900"
+                                className="surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     New Purchase Request
                                 </h2>
 
-                                <p className="mt-2 text-gray-400">
+                                <p className="text-muted mt-2">
                                     Submit items for accountant approval
                                 </p>
                             </a>
 
                             <a
                                 href="/procurement"
-                                className="rounded-xl border border-gray-800 bg-gray-950 p-6 hover:bg-gray-900"
+                                className="surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     My Requests
                                 </h2>
 
-                                <p className="mt-2 text-gray-400">
+                                <p className="text-muted mt-2">
                                     View your submitted requests
                                 </p>
                             </a>
@@ -110,13 +110,13 @@ export default function DashboardPage() {
                     {profile?.role === "accountant" && (
                         <a
                             href="/accountant/requests"
-                            className="rounded-xl border border-gray-800 bg-gray-950 p-6 hover:bg-gray-900"
+                            className="surface-card interactive-card p-7 lg:p-8"
                         >
                             <h2 className="text-xl font-semibold">
                                 Purchase Approvals
                             </h2>
 
-                            <p className="mt-2 text-gray-400">
+                            <p className="text-muted mt-2">
                                 Review procurement requests
                             </p>
                         </a>
@@ -126,26 +126,26 @@ export default function DashboardPage() {
                         <>
                             <a
                                 href="/storekeeper/receipts"
-                                className="rounded-xl border border-gray-800 bg-gray-950 p-6 hover:bg-gray-900"
+                                className="surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     Incoming Stock
                                 </h2>
 
-                                <p className="mt-2 text-gray-400">
+                                <p className="text-muted mt-2">
                                     Verify approved purchases
                                 </p>
                             </a>
 
                             <a
                                 href="/inventory"
-                                className="rounded-xl border border-gray-800 bg-gray-950 p-6 hover:bg-gray-900"
+                                className="surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     Inventory
                                 </h2>
 
-                                <p className="mt-2 text-gray-400">
+                                <p className="text-muted mt-2">
                                     View current hotel stock
                                 </p>
                             </a>
