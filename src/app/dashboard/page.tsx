@@ -11,10 +11,26 @@ type UserProfile = {
     role: string;
 };
 
+type OwnerWorkflowCounts = {
+    needsAttention: number;
+    awaitingAccountant: number;
+    awaitingReceipt: number;
+    recentlyCompleted: number;
+};
+
+const emptyOwnerCounts: OwnerWorkflowCounts = {
+    needsAttention: 0,
+    awaitingAccountant: 0,
+    awaitingReceipt: 0,
+    recentlyCompleted: 0,
+};
+
 export default function DashboardPage() {
     const router = useRouter();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [ownerCounts, setOwnerCounts] =
+        useState<OwnerWorkflowCounts>(emptyOwnerCounts);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -39,6 +55,37 @@ export default function DashboardPage() {
                 console.error("Error loading profile:", error);
                 setLoading(false);
                 return;
+            }
+
+            if (data.role === "owner") {
+                const { data: requestData, error: requestsError } =
+                    await supabase.from("purchase_requests").select("status");
+
+                if (requestsError) {
+                    console.error(
+                        "Error loading owner workflow counts:",
+                        requestsError
+                    );
+                } else {
+                    const statuses = (requestData ?? []) as { status: string }[];
+
+                    setOwnerCounts({
+                        needsAttention: statuses.filter((request) =>
+                            ["rejected", "receipt_issue", "cancelled"].includes(
+                                request.status
+                            )
+                        ).length,
+                        awaitingAccountant: statuses.filter(
+                            (request) => request.status === "pending_accountant"
+                        ).length,
+                        awaitingReceipt: statuses.filter(
+                            (request) => request.status === "approved"
+                        ).length,
+                        recentlyCompleted: statuses.filter(
+                            (request) => request.status === "received"
+                        ).length,
+                    });
+                }
             }
 
             setProfile(data);
@@ -165,6 +212,108 @@ export default function DashboardPage() {
                                     View current hotel stock
                                 </p>
                             </a>
+                        </>
+                    )}
+
+                    {profile?.role === "owner" && (
+                        <>
+                            <Link
+                                href="/owner"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Owner Overview
+                                </h2>
+                                <p className="text-muted mt-2">
+                                    View the complete stock-in workflow
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/owner/needs-attention"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Needs Attention
+                                </h2>
+                                <p className="mt-3 text-3xl font-semibold">
+                                    {ownerCounts.needsAttention}
+                                </p>
+                                <p className="text-muted mt-1 text-sm">
+                                    Rejected requests and receipt issues
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/owner/awaiting-accountant"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Awaiting Accountant
+                                </h2>
+                                <p className="mt-3 text-3xl font-semibold">
+                                    {ownerCounts.awaitingAccountant}
+                                </p>
+                                <p className="text-muted mt-1 text-sm">
+                                    Requests ready for approval
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/owner/awaiting-receipt"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Awaiting Receipt
+                                </h2>
+                                <p className="mt-3 text-3xl font-semibold">
+                                    {ownerCounts.awaitingReceipt}
+                                </p>
+                                <p className="text-muted mt-1 text-sm">
+                                    Approved requests ready to receive
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/owner/recently-completed"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Recently Completed
+                                </h2>
+                                <p className="mt-3 text-3xl font-semibold">
+                                    {ownerCounts.recentlyCompleted}
+                                </p>
+                                <p className="text-muted mt-1 text-sm">
+                                    Received purchase requests
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/procurement/new"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    New Purchase Request
+                                </h2>
+
+                                <p className="text-muted mt-2">
+                                    Create a request for accountant approval
+                                </p>
+                            </Link>
+
+                            <Link
+                                href="/inventory"
+                                className="surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    Inventory
+                                </h2>
+
+                                <p className="text-muted mt-2">
+                                    View current hotel stock
+                                </p>
+                            </Link>
                         </>
                     )}
                 </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import RequestHistory from "@/components/request-history";
 import { supabase } from "@/lib/supabase";
 
 type RequestStatus = "approved" | "rejected";
@@ -13,7 +14,16 @@ type PurchaseRequest = {
     status: string;
     createdAt: string;
     requestedBy: string;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    receivedAt: string | null;
+    receivedBy: string | null;
     rejectionReason: string | null;
+    receiptIssueReason: string | null;
+    receiptIssueReportedAt: string | null;
+    receiptIssueReportedBy: string | null;
+    receiptIssueResolvedAt: string | null;
+    receiptIssueResolvedBy: string | null;
     lines: RequestLine[];
 };
 
@@ -30,7 +40,16 @@ type RequestRow = {
     status: string;
     created_at: string;
     requested_by: string;
+    accountant_approved_by: string | null;
+    accountant_approved_at: string | null;
+    storekeeper_verified_by: string | null;
+    storekeeper_verified_at: string | null;
     rejection_reason: string | null;
+    receipt_issue_reason: string | null;
+    receipt_issue_reported_by: string | null;
+    receipt_issue_reported_at: string | null;
+    receipt_issue_resolved_by: string | null;
+    receipt_issue_resolved_at: string | null;
 };
 
 type RequestLineRow = {
@@ -44,6 +63,11 @@ type ItemRow = {
     id: number;
     name: string;
     unit: string;
+};
+
+type UserRow = {
+    id: string;
+    name: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-NG", {
@@ -142,7 +166,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
-            if (profile.role !== "accountant") {
+            if (!["accountant", "owner"].includes(profile.role)) {
                 router.replace("/dashboard");
                 return;
             }
@@ -150,7 +174,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             const { data: requestData, error: requestError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, rejection_reason"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, rejection_reason, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at"
                 )
                 .eq("id", Number(requestId))
                 .maybeSingle();
@@ -176,7 +200,14 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             }
 
             const requestRow = requestData as RequestRow;
-            const [linesResult, requesterResult] = await Promise.all([
+            const userIds = [
+                requestRow.requested_by,
+                requestRow.accountant_approved_by,
+                requestRow.storekeeper_verified_by,
+                requestRow.receipt_issue_reported_by,
+                requestRow.receipt_issue_resolved_by,
+            ].filter((id): id is string => Boolean(id));
+            const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
                     .select("id, item_id, quantity, unit_price")
@@ -184,15 +215,14 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                     .order("id", { ascending: true }),
                 supabase
                     .from("users")
-                    .select("name")
-                    .eq("id", requestRow.requested_by)
-                    .maybeSingle(),
+                    .select("id, name")
+                    .in("id", userIds),
             ]);
 
-            if (linesResult.error || requesterResult.error) {
+            if (linesResult.error || usersResult.error) {
                 console.error(
                     "Error loading purchase request details:",
-                    linesResult.error ?? requesterResult.error
+                    linesResult.error ?? usersResult.error
                 );
 
                 if (!ignore) {
@@ -228,13 +258,40 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             }
 
             const itemsById = new Map(itemRows.map((item) => [item.id, item]));
+            const usersById = new Map(
+                ((usersResult.data ?? []) as UserRow[]).map((profileRow) => [
+                    profileRow.id,
+                    profileRow.name,
+                ])
+            );
             const formattedRequest: PurchaseRequest = {
                 id: requestRow.id,
                 status: requestRow.status,
                 createdAt: requestRow.created_at,
                 requestedBy:
-                    requesterResult.data?.name ?? "Procurement user",
+                    usersById.get(requestRow.requested_by) ?? "Procurement user",
+                reviewedAt: requestRow.accountant_approved_at,
+                reviewedBy: requestRow.accountant_approved_by
+                    ? (usersById.get(requestRow.accountant_approved_by) ??
+                      "Accountant")
+                    : null,
+                receivedAt: requestRow.storekeeper_verified_at,
+                receivedBy: requestRow.storekeeper_verified_by
+                    ? (usersById.get(requestRow.storekeeper_verified_by) ??
+                      "Storekeeper")
+                    : null,
                 rejectionReason: requestRow.rejection_reason,
+                receiptIssueReason: requestRow.receipt_issue_reason,
+                receiptIssueReportedAt: requestRow.receipt_issue_reported_at,
+                receiptIssueReportedBy: requestRow.receipt_issue_reported_by
+                    ? (usersById.get(requestRow.receipt_issue_reported_by) ??
+                      "Storekeeper")
+                    : null,
+                receiptIssueResolvedAt: requestRow.receipt_issue_resolved_at,
+                receiptIssueResolvedBy: requestRow.receipt_issue_resolved_by
+                    ? (usersById.get(requestRow.receipt_issue_resolved_by) ??
+                      "Owner")
+                    : null,
                 lines: lineRows.map((line) => {
                     const item = itemsById.get(line.item_id);
 
@@ -428,6 +485,64 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                         </p>
                     </div>
                 )}
+
+                <RequestHistory
+                    entries={[
+                        {
+                            action: "Requested",
+                            person: request.requestedBy,
+                            timestamp: request.createdAt,
+                        },
+                        ...(request.reviewedAt && request.reviewedBy
+                            ? [
+                                  {
+                                      action:
+                                          request.status === "rejected"
+                                              ? "Rejected"
+                                              : "Approved",
+                                      person: request.reviewedBy,
+                                      timestamp: request.reviewedAt,
+                                      detail:
+                                          request.status === "rejected"
+                                              ? request.rejectionReason
+                                              : null,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receiptIssueReportedAt &&
+                        request.receiptIssueReportedBy
+                            ? [
+                                  {
+                                      action: "Receipt issue reported",
+                                      person: request.receiptIssueReportedBy,
+                                      timestamp:
+                                          request.receiptIssueReportedAt,
+                                      detail: request.receiptIssueReason,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receiptIssueResolvedAt &&
+                        request.receiptIssueResolvedBy
+                            ? [
+                                  {
+                                      action: "Receipt issue resolved",
+                                      person: request.receiptIssueResolvedBy,
+                                      timestamp:
+                                          request.receiptIssueResolvedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receivedAt && request.receivedBy
+                            ? [
+                                  {
+                                      action: "Received",
+                                      person: request.receivedBy,
+                                      timestamp: request.receivedAt,
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
 
                 <div className="surface-card mt-8 overflow-hidden">
                     <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">

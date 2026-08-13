@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import RequestHistory from "@/components/request-history";
 import { supabase } from "@/lib/supabase";
 
 type ReceiptRequest = {
@@ -18,6 +19,8 @@ type ReceiptRequest = {
     receiptIssueReason: string | null;
     receiptIssueReportedAt: string | null;
     receiptIssueReportedBy: string | null;
+    receiptIssueResolvedAt: string | null;
+    receiptIssueResolvedBy: string | null;
     lines: ReceiptLine[];
 };
 
@@ -40,6 +43,8 @@ type RequestRow = {
     receipt_issue_reason: string | null;
     receipt_issue_reported_by: string | null;
     receipt_issue_reported_at: string | null;
+    receipt_issue_resolved_by: string | null;
+    receipt_issue_resolved_at: string | null;
 };
 
 type RequestItemRow = {
@@ -78,6 +83,8 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
     const [issueDialogOpen, setIssueDialogOpen] = useState(false);
     const [issueReason, setIssueReason] = useState("");
     const [issueError, setIssueError] = useState("");
+    const [viewerRole, setViewerRole] = useState("");
+    const [resolvingIssue, setResolvingIssue] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
@@ -117,15 +124,19 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
-            if (profile.role !== "storekeeper") {
+            if (!["storekeeper", "owner"].includes(profile.role)) {
                 router.replace("/dashboard");
                 return;
+            }
+
+            if (!ignore) {
+                setViewerRole(profile.role);
             }
 
             const { data: requestData, error: requestError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at"
                 )
                 .eq("id", Number(requestId))
                 .in("status", ["approved", "received", "receipt_issue"])
@@ -159,6 +170,7 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 requestRow.accountant_approved_by,
                 requestRow.storekeeper_verified_by,
                 requestRow.receipt_issue_reported_by,
+                requestRow.receipt_issue_resolved_by,
             ].filter((id): id is string => Boolean(id));
             const [linesResult, usersResult] = await Promise.all([
                 supabase
@@ -236,6 +248,11 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     ? (usersById.get(requestRow.receipt_issue_reported_by) ??
                       "Storekeeper")
                     : null,
+                receiptIssueResolvedAt: requestRow.receipt_issue_resolved_at,
+                receiptIssueResolvedBy: requestRow.receipt_issue_resolved_by
+                    ? (usersById.get(requestRow.receipt_issue_resolved_by) ??
+                      "Owner")
+                    : null,
                 lines: lineRows.map((line) => {
                     const item = itemsById.get(line.item_id);
 
@@ -297,6 +314,46 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
         }
 
         router.push("/storekeeper/receipts");
+        router.refresh();
+    }
+
+    async function resolveReceiptIssue() {
+        if (
+            !request ||
+            request.status !== "receipt_issue" ||
+            viewerRole !== "owner" ||
+            resolvingIssue
+        ) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Mark the receipt issue for Purchase Request #${request.id} as resolved?\n\nThe request will return to Awaiting Receipt. No inventory will be changed until the receipt is confirmed.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setResolvingIssue(true);
+        setErrorMessage("");
+
+        const { error } = await supabase.rpc("resolve_receipt_issue", {
+            target_request_id: request.id,
+        });
+
+        if (error) {
+            console.error("Error resolving receipt issue:", error);
+            setErrorMessage(
+                error.message.includes("does not have a receipt issue")
+                    ? "This receipt issue has already been resolved."
+                    : "Could not resolve this receipt issue. Please try again."
+            );
+            setResolvingIssue(false);
+            return;
+        }
+
+        router.push("/owner");
         router.refresh();
     }
 
@@ -448,6 +505,30 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     </div>
                 )}
 
+                {!hasReceiptIssue &&
+                    request.receiptIssueReason &&
+                    request.receiptIssueResolvedAt && (
+                        <div className="surface-card mt-8 p-5">
+                            <h2 className="font-semibold">
+                                Previous Receipt Issue — Resolved
+                            </h2>
+                            <p className="mt-2 whitespace-pre-wrap">
+                                {request.receiptIssueReason}
+                            </p>
+                            <div className="text-muted mt-4 text-sm">
+                                <p>
+                                    Resolved by: {request.receiptIssueResolvedBy ??
+                                        "Owner"}
+                                </p>
+                                <p className="mt-1">
+                                    Resolved: {formatDateTime(
+                                        request.receiptIssueResolvedAt
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                 <dl className="surface-card mt-8 grid gap-5 p-6 sm:grid-cols-2 lg:grid-cols-3 lg:p-7">
                     <div>
                         <dt className="text-muted text-sm">Requested by</dt>
@@ -491,6 +572,57 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     )}
                 </dl>
 
+                <RequestHistory
+                    entries={[
+                        {
+                            action: "Requested",
+                            person: request.requestedBy,
+                            timestamp: request.createdAt,
+                        },
+                        ...(request.approvedAt
+                            ? [
+                                  {
+                                      action: "Approved",
+                                      person: request.approvedBy,
+                                      timestamp: request.approvedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receiptIssueReportedAt &&
+                        request.receiptIssueReportedBy
+                            ? [
+                                  {
+                                      action: "Receipt issue reported",
+                                      person: request.receiptIssueReportedBy,
+                                      timestamp:
+                                          request.receiptIssueReportedAt,
+                                      detail: request.receiptIssueReason,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receiptIssueResolvedAt &&
+                        request.receiptIssueResolvedBy
+                            ? [
+                                  {
+                                      action: "Receipt issue resolved",
+                                      person: request.receiptIssueResolvedBy,
+                                      timestamp:
+                                          request.receiptIssueResolvedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.receivedAt && request.receivedBy
+                            ? [
+                                  {
+                                      action: "Received",
+                                      person: request.receivedBy,
+                                      timestamp: request.receivedAt,
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
+
                 <div className="surface-card mt-8 overflow-hidden">
                     <div className="hidden grid-cols-[minmax(0,1fr)_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
                         <span>Item</span>
@@ -531,11 +663,30 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     </div>
                 ) : hasReceiptIssue ? (
                     <div className="surface-card mt-6 p-5">
-                        <p className="font-semibold">Awaiting resolution</p>
-                        <p className="text-muted mt-1 text-sm">
-                            This request is read-only until the receipt issue is
-                            resolved. No stock has been added.
-                        </p>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-semibold">
+                                    Awaiting resolution
+                                </p>
+                                <p className="text-muted mt-1 text-sm">
+                                    No stock has been added while this receipt issue
+                                    remains unresolved.
+                                </p>
+                            </div>
+
+                            {viewerRole === "owner" && (
+                                <button
+                                    type="button"
+                                    onClick={resolveReceiptIssue}
+                                    disabled={resolvingIssue}
+                                    className="primary-action shrink-0"
+                                >
+                                    {resolvingIssue
+                                        ? "Resolving Issue..."
+                                        : "Mark Issue Resolved"}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <>

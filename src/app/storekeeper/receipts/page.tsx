@@ -87,7 +87,7 @@ export default function StorekeeperReceiptsPage() {
                 return;
             }
 
-            if (profile.role !== "storekeeper") {
+            if (!["storekeeper", "owner"].includes(profile.role)) {
                 router.replace("/dashboard");
                 return;
             }

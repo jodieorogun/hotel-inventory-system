@@ -90,7 +90,7 @@ export default function AccountantRequestsPage() {
                 return;
             }
 
-            if (profile.role !== "accountant") {
+            if (!["accountant", "owner"].includes(profile.role)) {
                 router.replace("/dashboard");
                 return;
             }
