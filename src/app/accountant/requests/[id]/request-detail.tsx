@@ -178,7 +178,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             const requestRow = requestData as RequestRow;
             const [linesResult, requesterResult] = await Promise.all([
                 supabase
-                    .from("purchase_request_items")
+                    .from("purchase_requests_items")
                     .select("id, item_id, quantity, unit_price")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),

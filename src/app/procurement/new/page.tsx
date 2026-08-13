@@ -270,7 +270,7 @@ export default function NewProcurementRequestPage() {
         }));
 
         const { error: itemsError } = await supabase
-            .from("purchase_request_items")
+            .from("purchase_requests_items")
             .insert(requestItems);
 
         if (itemsError) {

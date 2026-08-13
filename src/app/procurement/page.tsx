@@ -146,7 +146,7 @@ export default function ProcurementRequestsPage() {
             const requestIds = requestRows.map((request) => request.id);
 
             const { data: lineData, error: linesError } = await supabase
-                .from("purchase_request_items")
+                .from("purchase_requests_items")
                 .select("id, request_id, item_id, quantity, unit_price")
                 .in("request_id", requestIds)
                 .order("id", { ascending: true });

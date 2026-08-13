@@ -130,7 +130,7 @@ export default function AccountantRequestsPage() {
 
             const [linesResult, usersResult] = await Promise.all([
                 supabase
-                    .from("purchase_request_items")
+                    .from("purchase_requests_items")
                     .select("id, request_id, quantity, unit_price")
                     .in("request_id", requestIds),
                 supabase
