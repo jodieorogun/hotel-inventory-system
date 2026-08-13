@@ -244,6 +244,11 @@ export default function NewProcurementRequestPage() {
                 .insert({
                     requested_by: user.id,
                     status: "pending_accountant",
+                    accountant_approved_by: null,
+                    accountant_approved_at: null,
+                    storekeeper_verified_by: null,
+                    storekeeper_verified_at: null,
+                    rejection_reason: null,
                 })
                 .select("id")
                 .single();

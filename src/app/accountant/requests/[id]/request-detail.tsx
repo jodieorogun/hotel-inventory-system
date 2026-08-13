@@ -303,6 +303,8 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 status,
                 accountant_approved_by: user.id,
                 accountant_approved_at: new Date().toISOString(),
+                storekeeper_verified_by: null,
+                storekeeper_verified_at: null,
                 rejection_reason:
                     status === "rejected" ? reason?.trim() : null,
             })
