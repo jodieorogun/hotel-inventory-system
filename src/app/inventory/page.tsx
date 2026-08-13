@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import AppHeader from "@/components/app-header";
 
 export default async function InventoryPage() {
     const { data: items, error } = await supabase
@@ -7,12 +8,24 @@ export default async function InventoryPage() {
 
     if (error) {
         console.error("Error fetching items:", error);
-        return <div>Error fetching items</div>;
+        return (
+            <main className="min-h-screen bg-black p-8 text-white">
+                <div className="mx-auto max-w-5xl">
+                    <AppHeader />
+
+                    <p className="rounded-xl border border-red-900 bg-red-950 p-5 text-red-300">
+                        Could not load inventory items.
+                    </p>
+                </div>
+            </main>
+        );
     }
 
     return (
         <main className="min-h-screen bg-black p-8 text-white">
             <div className="mx-auto max-w-5xl">
+                <AppHeader />
+
                 <h1 className="mb-2 text-3xl font-bold">
                     Inventory
                 </h1>
