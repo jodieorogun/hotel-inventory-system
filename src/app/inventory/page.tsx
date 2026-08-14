@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import ListSearch from "@/components/list-search";
 import { supabase } from "@/lib/supabase";
+import { hasPurchaseConversion } from "@/lib/units";
 
 type InventoryItem = {
     id: number;
@@ -11,6 +13,8 @@ type InventoryItem = {
     category: string;
     current_quantity: number | string;
     unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 export default function InventoryPage() {
@@ -18,6 +22,7 @@ export default function InventoryPage() {
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -35,7 +40,7 @@ export default function InventoryPage() {
 
             const { data, error } = await supabase
                 .from("items")
-                .select("id, name, category, current_quantity, unit")
+                .select("id, name, category, current_quantity, unit, purchase_unit, units_per_purchase_unit")
                 .order("name");
 
             if (ignore) {
@@ -70,6 +75,16 @@ export default function InventoryPage() {
         );
     }
 
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const filteredItems = items.filter(
+        (item) =>
+            !normalizedSearch ||
+            item.name.toLowerCase().includes(normalizedSearch) ||
+            item.category.toLowerCase().includes(normalizedSearch) ||
+            item.unit.toLowerCase().includes(normalizedSearch) ||
+            item.purchase_unit.toLowerCase().includes(normalizedSearch)
+    );
+
     return (
         <main className="app-page">
             <div className="mx-auto max-w-7xl">
@@ -89,6 +104,15 @@ export default function InventoryPage() {
                     </p>
                 )}
 
+                {!errorMessage && (
+                    <ListSearch
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Search inventory by item, category, or unit"
+                        className="mb-5 max-w-xl"
+                    />
+                )}
+
                 <div className="surface-card overflow-x-auto">
                     <table className="w-full min-w-150 text-[var(--foreground)]">
                         <thead className="bg-[var(--surface-subtle)] text-[var(--foreground)]">
@@ -106,13 +130,17 @@ export default function InventoryPage() {
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
-                                    Unit
+                                    Stock Unit
+                                </th>
+
+                                <th className="px-7 py-5 text-left">
+                                    Purchased As
                                 </th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {items.map((item) => (
+                            {filteredItems.map((item) => (
                                 <tr
                                     key={item.id}
                                     className="data-row"
@@ -132,8 +160,28 @@ export default function InventoryPage() {
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {item.unit}
                                     </td>
+
+                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
+                                        {hasPurchaseConversion(
+                                            item.unit,
+                                            item.purchase_unit,
+                                            Number(item.units_per_purchase_unit)
+                                        )
+                                            ? `1 ${item.purchase_unit} = ${item.units_per_purchase_unit} ${item.unit}`
+                                            : "—"}
+                                    </td>
                                 </tr>
                             ))}
+                            {filteredItems.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={5}
+                                        className="text-muted px-7 py-10 text-center"
+                                    >
+                                        No inventory items match that search.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

@@ -3,18 +3,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f4f7f6;
-  --foreground: #17201e;
+  --background: #f7f4ef;
+  --foreground: #202936;
   --surface: #ffffff;
-  --surface-subtle: #eef3f1;
-  --surface-hover: #e7efec;
-  --border: #d7e0dd;
-  --border-strong: #b9c8c3;
-  --muted: #64736f;
-  --muted-strong: #43524e;
-  --accent: #176b5b;
-  --accent-hover: #115749;
-  --accent-soft: #ddefe9;
+  --surface-subtle: #eef1f6;
+  --surface-hover: #e5eaf2;
+  --border: #d8dde6;
+  --border-strong: #b9c2d0;
+  --muted: #687385;
+  --muted-strong: #465264;
+  --accent: #b85f49;
+  --accent-hover: #984a38;
+  --accent-soft: #fae8df;
   --accent-foreground: #ffffff;
   --danger: #b42318;
   --danger-soft: #fef3f2;
@@ -30,19 +30,19 @@
 }
 
 .dark {
-  --background: #0c1211;
-  --foreground: #edf3f1;
-  --surface: #131b19;
-  --surface-subtle: #192421;
-  --surface-hover: #21302c;
-  --border: #293936;
-  --border-strong: #3d514c;
-  --muted: #9aaba6;
-  --muted-strong: #c0ccc8;
-  --accent: #65c7ae;
-  --accent-hover: #83d4bf;
-  --accent-soft: #163e34;
-  --accent-foreground: #09231d;
+  --background: #10141b;
+  --foreground: #edf1f7;
+  --surface: #171d27;
+  --surface-subtle: #202837;
+  --surface-hover: #293345;
+  --border: #303a4a;
+  --border-strong: #47546a;
+  --muted: #9aa6b7;
+  --muted-strong: #c4ccda;
+  --accent: #aaa5ff;
+  --accent-hover: #c0bdff;
+  --accent-soft: #2d2c4d;
+  --accent-foreground: #17172c;
   --danger: #fda29b;
   --danger-soft: #3a1717;
   --danger-border: #7a271a;
@@ -86,6 +86,25 @@ select {
     padding-bottom: 1.25rem;
   }
 
+  .dashboard-header {
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    border-bottom: 0;
+    border-radius: 1.5rem;
+    background: linear-gradient(
+      135deg,
+      var(--surface) 0%,
+      var(--accent-soft) 100%
+    );
+    padding: 1.5rem;
+    box-shadow: 0 10px 36px rgb(25 38 68 / 0.07);
+  }
+
+  .dashboard-widget {
+    border-radius: 1.4rem;
+  }
+
   .dashboard-link {
     display: inline-flex;
     min-height: 2.75rem;
@@ -109,7 +128,7 @@ select {
     border: 1px solid var(--border);
     border-radius: 1rem;
     background: var(--surface);
-    box-shadow: 0 1px 2px rgb(18 38 32 / 0.04);
+    box-shadow: 0 1px 2px rgb(25 38 68 / 0.05);
   }
 
   .interactive-card {
@@ -119,7 +138,7 @@ select {
 
   .interactive-card:hover {
     border-color: var(--border-strong);
-    box-shadow: 0 10px 28px rgb(18 38 32 / 0.08);
+    box-shadow: 0 10px 28px rgb(25 38 68 / 0.09);
     transform: translateY(-1px);
   }
 

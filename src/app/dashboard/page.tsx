@@ -20,23 +20,81 @@ type RequestSummary = {
     receipt_issue_resolved_at: string | null;
 };
 
+type WidgetTone = "attention" | "waiting" | "healthy" | "active" | "neutral";
+
+const greetings = [
+    "Hi",
+    "Welcome back",
+    "Good to see you",
+    "Hello again",
+    "Nice to have you back",
+];
+
+const widgetTones: Record<
+    WidgetTone,
+    { bar: string; dot: string; label: string }
+> = {
+    attention: {
+        bar: "bg-red-500 dark:bg-red-400",
+        dot: "bg-red-500 dark:bg-red-400",
+        label: "Needs attention",
+    },
+    waiting: {
+        bar: "bg-amber-400 dark:bg-amber-300",
+        dot: "bg-amber-400 dark:bg-amber-300",
+        label: "Waiting",
+    },
+    healthy: {
+        bar: "bg-emerald-500 dark:bg-emerald-400",
+        dot: "bg-emerald-500 dark:bg-emerald-400",
+        label: "Completed",
+    },
+    active: {
+        bar: "bg-sky-500 dark:bg-sky-400",
+        dot: "bg-sky-500 dark:bg-sky-400",
+        label: "In progress",
+    },
+    neutral: {
+        bar: "bg-slate-400 dark:bg-slate-500",
+        dot: "bg-slate-400 dark:bg-slate-500",
+        label: "Overview",
+    },
+};
+
 function WorkflowWidget({
     href,
     title,
     count,
     description,
+    tone,
 }: {
     href: string;
     title: string;
     count: number;
     description: string;
+    tone: WidgetTone;
 }) {
+    const toneDetails = widgetTones[tone];
+
     return (
         <Link
             href={href}
-            className="surface-card interactive-card p-7 lg:p-8"
+            className="dashboard-widget surface-card interactive-card relative overflow-hidden p-7 lg:p-8"
         >
-            <h2 className="text-xl font-semibold">{title}</h2>
+            <span
+                aria-hidden="true"
+                className={`absolute inset-x-0 top-0 h-1 ${toneDetails.bar}`}
+            />
+            <div className="flex items-start justify-between gap-4">
+                <h2 className="text-xl font-semibold">{title}</h2>
+                <span className="text-muted flex shrink-0 items-center gap-2 text-xs">
+                    <span
+                        aria-hidden="true"
+                        className={`h-2 w-2 rounded-full ${toneDetails.dot}`}
+                    />
+                    {toneDetails.label}
+                </span>
+            </div>
             <p className="mt-3 text-3xl font-semibold">{count}</p>
             <p className="text-muted mt-1 text-sm">{description}</p>
         </Link>
@@ -52,6 +110,7 @@ export default function DashboardPage() {
     );
     const [inventoryItemCount, setInventoryItemCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [greetingIndex, setGreetingIndex] = useState(0);
 
     useEffect(() => {
         async function loadUser() {
@@ -174,6 +233,7 @@ export default function DashboardPage() {
             }
 
             setProfile(data);
+            setGreetingIndex(Math.floor(Math.random() * greetings.length));
             setLoading(false);
         }
 
@@ -184,7 +244,11 @@ export default function DashboardPage() {
         return (
             <main className="app-page">
                 <div className="mx-auto max-w-7xl">
-                    <AppHeader />
+                    <AppHeader>
+                        <div>
+                            <h1 className="page-title">Dashboard</h1>
+                        </div>
+                    </AppHeader>
 
                     <p className="text-muted">
                         Loading...
@@ -194,22 +258,82 @@ export default function DashboardPage() {
         );
     }
 
+    const reviewCount =
+        profile?.role === "procurement"
+            ? (workflowCounts.procurementRejected ?? 0)
+            : profile?.role === "accountant"
+              ? (workflowCounts.accountantPending ?? 0)
+              : profile?.role === "storekeeper"
+                ? (workflowCounts.awaitingReceipt ?? 0) +
+                  (workflowCounts.receiptIssues ?? 0)
+                : (workflowCounts.needsAttention ?? 0);
+    const reviewSummary = (() => {
+        if (reviewCount === 0) {
+            return "nothing new needs your attention.";
+        }
+
+        if (profile?.role === "storekeeper") {
+            return `${reviewCount} receipt ${reviewCount === 1 ? "task needs" : "tasks need"} your review.`;
+        }
+
+        if (profile?.role === "procurement") {
+            return `${reviewCount} rejected ${reviewCount === 1 ? "request needs" : "requests need"} your review.`;
+        }
+
+        return `${reviewCount} ${reviewCount === 1 ? "request needs" : "requests need"} your review.`;
+    })();
+    const reviewHref =
+        profile?.role === "procurement"
+            ? "/procurement?tab=rejected"
+            : profile?.role === "accountant"
+              ? "/accountant/requests?tab=pending"
+              : profile?.role === "storekeeper"
+                ? (workflowCounts.receiptIssues ?? 0) > 0
+                    ? "/storekeeper/receipts?tab=issues"
+                    : "/storekeeper/receipts?tab=awaiting"
+                : "/owner/needs-attention";
+
     return (
         <main className="app-page">
             <div className="mx-auto max-w-7xl">
-                <AppHeader />
+                <AppHeader>
+                    <div>
+                        <p className="text-sm font-medium capitalize text-[var(--muted-strong)]">
+                            {profile?.role.replaceAll("_", " ")} workspace
+                        </p>
+                        <h1 className="mt-2 max-w-4xl text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.95] tracking-[-0.055em]">
+                            {greetings[greetingIndex]},{" "}
+                            <span className="text-[var(--accent)]">
+                                {profile?.name}
+                            </span>
+                        </h1>
+                    </div>
+                </AppHeader>
 
-                <div>
-                    <h1 className="page-title">
-                        Welcome, {profile?.name}
-                    </h1>
+                <Link
+                    href={reviewHref}
+                    className="dashboard-widget surface-card interactive-card flex items-center gap-5 p-6 sm:gap-7 sm:p-7"
+                >
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-2xl font-semibold text-[var(--accent)] sm:h-16 sm:w-16 sm:text-3xl">
+                        {reviewCount}
+                    </span>
 
-                    <p className="page-description mt-2 capitalize">
-                        {profile?.role.replaceAll("_", " ")} workspace
-                    </p>
-                </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-muted text-xs font-semibold uppercase tracking-[0.12em]">
+                            Since you&apos;ve been gone
+                        </p>
+                        <h2 className="mt-2 text-lg font-semibold sm:text-xl">
+                            {reviewSummary.charAt(0).toUpperCase() +
+                                reviewSummary.slice(1)}
+                        </h2>
+                    </div>
 
-                <div className="mt-10 grid gap-6 sm:grid-cols-2">
+                    <span aria-hidden="true" className="text-muted text-xl">
+                        →
+                    </span>
+                </Link>
+
+                <div className="mt-6 grid gap-6 sm:grid-cols-2">
                     {profile?.role === "procurement" && (
                         <>
                             <WorkflowWidget
@@ -217,28 +341,32 @@ export default function DashboardPage() {
                                 title="Active"
                                 count={workflowCounts.procurementActive ?? 0}
                                 description="Requests moving through the workflow"
+                                tone="active"
                             />
                             <WorkflowWidget
                                 href="/procurement?tab=rejected"
                                 title="Rejected"
                                 count={workflowCounts.procurementRejected ?? 0}
                                 description="Requests to modify or escalate"
+                                tone="attention"
                             />
                             <WorkflowWidget
                                 href="/procurement?tab=completed"
                                 title="Completed"
                                 count={workflowCounts.procurementCompleted ?? 0}
                                 description="Requests received into inventory"
+                                tone="healthy"
                             />
                             <WorkflowWidget
                                 href="/procurement?tab=all"
                                 title="All Requests"
                                 count={workflowCounts.procurementAll ?? 0}
                                 description="Every request you have submitted"
+                                tone="neutral"
                             />
                             <Link
                                 href="/procurement/new"
-                                className="surface-card interactive-card p-7 lg:p-8"
+                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     New Purchase Request
@@ -257,24 +385,28 @@ export default function DashboardPage() {
                                 title="Pending"
                                 count={workflowCounts.accountantPending ?? 0}
                                 description="Requests waiting for your decision"
+                                tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/accountant/requests?tab=approved"
                                 title="Approved"
                                 count={workflowCounts.accountantApproved ?? 0}
                                 description="Requests you approved"
+                                tone="healthy"
                             />
                             <WorkflowWidget
                                 href="/accountant/requests?tab=rejected"
                                 title="Rejected"
                                 count={workflowCounts.accountantRejected ?? 0}
                                 description="Requests you rejected"
+                                tone="attention"
                             />
                             <WorkflowWidget
                                 href="/accountant/requests?tab=all"
                                 title="All Requests"
                                 count={workflowCounts.accountantAll ?? 0}
                                 description="Pending and reviewed requests"
+                                tone="neutral"
                             />
                         </>
                     )}
@@ -286,109 +418,79 @@ export default function DashboardPage() {
                                 title="Awaiting Receipt"
                                 count={workflowCounts.awaitingReceipt ?? 0}
                                 description="Approved requests ready to check"
+                                tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=issues"
                                 title="Receipt Issues"
                                 count={workflowCounts.receiptIssues ?? 0}
                                 description="Reported mismatches awaiting resolution"
+                                tone="attention"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=received"
                                 title="Recently Received"
                                 count={workflowCounts.recentlyReceived ?? 0}
                                 description="Requests added to inventory"
+                                tone="healthy"
                             />
-
                             <WorkflowWidget
                                 href="/inventory"
                                 title="Inventory"
                                 count={inventoryItemCount}
                                 description="Items currently tracked in stock"
+                                tone="neutral"
                             />
                         </>
                     )}
 
                     {profile?.role === "owner" && (
                         <>
-                            <Link
+                            <WorkflowWidget
                                 href="/owner/needs-attention"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Needs Attention
-                                </h2>
-                                <p className="mt-3 text-3xl font-semibold">
-                                    {workflowCounts.needsAttention ?? 0}
-                                </p>
-                                <p className="text-muted mt-1 text-sm">
-                                    Escalations, rejections, and receipt issues
-                                </p>
-                            </Link>
-
-                            <Link
+                                title="Needs Attention"
+                                count={workflowCounts.needsAttention ?? 0}
+                                description="Escalations, rejections, and receipt issues"
+                                tone="attention"
+                            />
+                            <WorkflowWidget
                                 href="/owner/awaiting-accountant"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Awaiting Accountant
-                                </h2>
-                                <p className="mt-3 text-3xl font-semibold">
-                                    {workflowCounts.awaitingAccountant ?? 0}
-                                </p>
-                                <p className="text-muted mt-1 text-sm">
-                                    Requests ready for approval
-                                </p>
-                            </Link>
-
-                            <Link
+                                title="Awaiting Accountant"
+                                count={workflowCounts.awaitingAccountant ?? 0}
+                                description="Requests ready for approval"
+                                tone="waiting"
+                            />
+                            <WorkflowWidget
                                 href="/owner/awaiting-receipt"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Awaiting Receipt
-                                </h2>
-                                <p className="mt-3 text-3xl font-semibold">
-                                    {workflowCounts.awaitingReceipt ?? 0}
-                                </p>
-                                <p className="text-muted mt-1 text-sm">
-                                    Approved requests ready to receive
-                                </p>
-                            </Link>
-
-                            <Link
+                                title="Awaiting Receipt"
+                                count={workflowCounts.awaitingReceipt ?? 0}
+                                description="Approved requests ready to receive"
+                                tone="waiting"
+                            />
+                            <WorkflowWidget
                                 href="/owner/recently-completed"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Recently Completed
-                                </h2>
-                                <p className="mt-3 text-3xl font-semibold">
-                                    {workflowCounts.recentlyCompleted ?? 0}
-                                </p>
-                                <p className="text-muted mt-1 text-sm">
-                                    Received purchase requests
-                                </p>
-                            </Link>
-
+                                title="Recently Completed"
+                                count={workflowCounts.recentlyCompleted ?? 0}
+                                description="Received purchase requests"
+                                tone="healthy"
+                            />
                             <Link
                                 href="/procurement/new"
-                                className="surface-card interactive-card p-7 lg:p-8"
+                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     New Purchase Request
                                 </h2>
-
                                 <p className="text-muted mt-2">
                                     Create a request for accountant approval
                                 </p>
                             </Link>
-
                             <WorkflowWidget
                                 href="/inventory"
                                 title="Inventory"
                                 count={inventoryItemCount}
                                 description="Items currently tracked in stock"
+                                tone="neutral"
                             />
                         </>
                     )}

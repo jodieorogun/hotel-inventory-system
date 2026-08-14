@@ -37,6 +37,11 @@ The frontend expects these main tables:
 - `purchase_requests_items`
 - `purchase_request_events`
 
+Each `items` row uses `unit` as the stock unit, `purchase_unit` as the unit
+Procurement orders, and `units_per_purchase_unit` as the receipt conversion.
+Requested and received quantities remain in purchase units; confirmed inventory
+is increased in stock units.
+
 It also calls these database functions:
 
 - `create_purchase_request`

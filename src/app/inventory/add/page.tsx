@@ -10,6 +10,8 @@ export default function AddInventoryItemPage() {
     const [name, setName] = useState("");
     const [category, setCategory] = useState("");
     const [unit, setUnit] = useState("");
+    const [purchaseUnit, setPurchaseUnit] = useState("");
+    const [unitsPerPurchaseUnit, setUnitsPerPurchaseUnit] = useState("1");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
@@ -73,6 +75,8 @@ export default function AddInventoryItemPage() {
                 name: name.trim(),
                 category: category.trim(),
                 unit: unit.trim(),
+                purchase_unit: purchaseUnit.trim(),
+                units_per_purchase_unit: Number(unitsPerPurchaseUnit),
                 current_quantity: 0,
             }]);
 
@@ -86,6 +90,8 @@ export default function AddInventoryItemPage() {
         setName("");
         setCategory("");
         setUnit("");
+        setPurchaseUnit("");
+        setUnitsPerPurchaseUnit("1");
         setSuccessMessage("Inventory item added.");
         setSubmitting(false);
     }
@@ -160,7 +166,7 @@ export default function AddInventoryItemPage() {
 
                     <div>
                         <label className="form-label" htmlFor="item-unit">
-                            Unit
+                            Stock unit
                         </label>
 
                         <input
@@ -172,6 +178,52 @@ export default function AddInventoryItemPage() {
                             placeholder="e.g. roll"
                             required
                         />
+                        <p className="text-muted mt-2 text-sm">
+                            The smallest unit staff hand out from inventory.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="form-label" htmlFor="purchase-unit">
+                            Purchase unit
+                        </label>
+                        <input
+                            id="purchase-unit"
+                            type="text"
+                            value={purchaseUnit}
+                            onChange={(event) => setPurchaseUnit(event.target.value)}
+                            className="form-control"
+                            placeholder="e.g. pack"
+                            required
+                        />
+                        <p className="text-muted mt-2 text-sm">
+                            How Procurement normally buys this item.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label
+                            className="form-label"
+                            htmlFor="units-per-purchase-unit"
+                        >
+                            Stock units in one purchase unit
+                        </label>
+                        <input
+                            id="units-per-purchase-unit"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={unitsPerPurchaseUnit}
+                            onChange={(event) =>
+                                setUnitsPerPurchaseUnit(event.target.value)
+                            }
+                            className="form-control"
+                            placeholder="e.g. 12"
+                            required
+                        />
+                        <p className="text-muted mt-2 text-sm">
+                            For example, one pack containing 12 rolls is 12.
+                        </p>
                     </div>
 
                     <button

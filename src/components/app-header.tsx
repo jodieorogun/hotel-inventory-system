@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -27,7 +27,7 @@ function getInitials(name: string) {
         .toUpperCase();
 }
 
-export default function AppHeader() {
+export default function AppHeader({ children }: { children?: ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const menuRef = useRef<HTMLDivElement>(null);
@@ -153,20 +153,19 @@ export default function AppHeader() {
     }
 
     return (
-        <header className="app-header">
-            <Link
-                href="/dashboard"
-                className="dashboard-link"
-            >
-                {pathname === "/dashboard" ? (
-                    "Dashboard"
-                ) : (
-                    <>
-                        <span aria-hidden="true">←</span>
-                        Return to Dashboard
-                    </>
-                )}
-            </Link>
+        <header
+            className={`app-header ${
+                pathname === "/dashboard" ? "dashboard-header" : ""
+            }`}
+        >
+            {pathname === "/dashboard" ? (
+                children ?? <span aria-hidden="true" />
+            ) : (
+                <Link href="/dashboard" className="dashboard-link">
+                    <span aria-hidden="true">←</span>
+                    Return to Dashboard
+                </Link>
+            )}
 
             <div ref={menuRef} className="relative">
                 <button
@@ -258,14 +257,16 @@ export default function AppHeader() {
                             </div>
                         </div>
 
-                        <Link
-                            href="/dashboard"
-                            role="menuitem"
-                            onClick={() => setMenuOpen(false)}
-                            className="focus-ring block px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
-                        >
-                            Dashboard
-                        </Link>
+                        {pathname !== "/dashboard" && (
+                            <Link
+                                href="/dashboard"
+                                role="menuitem"
+                                onClick={() => setMenuOpen(false)}
+                                className="focus-ring block px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                            >
+                                Dashboard
+                            </Link>
+                        )}
 
                         <button
                             type="button"

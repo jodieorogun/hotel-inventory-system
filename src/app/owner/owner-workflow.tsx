@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import ListSearch from "@/components/list-search";
 import { supabase } from "@/lib/supabase";
 
 type OwnerRequest = {
@@ -189,6 +190,7 @@ export default function OwnerWorkflow({
     const [requests, setRequests] = useState<OwnerRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -328,19 +330,29 @@ export default function OwnerWorkflow({
         );
     }
 
-    const needsAttention = requests.filter((request) =>
-        ["rejected", "receipt_issue", "escalated_owner"].includes(
-            request.status
-        )
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const matchesSearch = (request: OwnerRequest) =>
+        !normalizedSearch ||
+        String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
+        request.requestedBy.toLowerCase().includes(normalizedSearch) ||
+        request.receiptIssueReason?.toLowerCase().includes(normalizedSearch);
+    const needsAttention = requests.filter(
+        (request) =>
+            ["rejected", "receipt_issue", "escalated_owner"].includes(
+                request.status
+            ) && matchesSearch(request)
     );
     const awaitingAccountant = requests.filter(
-        (request) => request.status === "pending_accountant"
+        (request) =>
+            request.status === "pending_accountant" && matchesSearch(request)
     );
     const awaitingReceipt = requests.filter(
-        (request) => request.status === "approved"
+        (request) => request.status === "approved" && matchesSearch(request)
     );
     const recentlyCompleted = requests
-        .filter((request) => request.status === "received")
+        .filter(
+            (request) => request.status === "received" && matchesSearch(request)
+        )
         .sort((first, second) =>
             (second.receivedAt ?? second.createdAt).localeCompare(
                 first.receivedAt ?? first.createdAt
@@ -407,6 +419,15 @@ export default function OwnerWorkflow({
                     <div className="error-message mt-8" role="alert">
                         {errorMessage}
                     </div>
+                )}
+
+                {!errorMessage && (
+                    <ListSearch
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Search by request number or requester"
+                        className="mt-8 max-w-xl"
+                    />
                 )}
 
                 {!errorMessage && (

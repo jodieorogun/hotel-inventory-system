@@ -9,6 +9,11 @@ import RequestHistory, {
 } from "@/components/request-history";
 import { loadRequestHistory } from "@/lib/request-history";
 import { supabase } from "@/lib/supabase";
+import {
+    formatQuantity,
+    hasPurchaseConversion,
+    stockEquivalent,
+} from "@/lib/units";
 
 type ReceiptRequest = {
     id: number;
@@ -42,6 +47,8 @@ type ReceiptLine = {
     quantity: number;
     receivedQuantity: number | null;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
 };
 
 type RequestRow = {
@@ -78,6 +85,8 @@ type ItemRow = {
     id: number;
     name: string;
     unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type UserRow = {
@@ -239,7 +248,7 @@ export default function ReceiptDetail({
             if (itemIds.length > 0) {
                 const { data: itemData, error: itemsError } = await supabase
                     .from("items")
-                    .select("id, name, unit")
+                    .select("id, name, unit, purchase_unit, units_per_purchase_unit")
                     .in("id", itemIds);
 
                 if (itemsError) {
@@ -326,6 +335,10 @@ export default function ReceiptDetail({
                                 ? null
                                 : Number(line.received_quantity),
                         unit: item?.unit ?? "",
+                        purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                        unitsPerPurchaseUnit: Number(
+                            item?.units_per_purchase_unit ?? 1
+                        ),
                     };
                 }),
             };
@@ -755,7 +768,7 @@ export default function ReceiptDetail({
                 <div className="surface-card mt-8 overflow-hidden">
                     <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
                         <span>Item</span>
-                        <span className="w-36">Approved</span>
+                        <span className="w-44">Ordered</span>
                         <span className="w-40">Actual Received</span>
                     </div>
 
@@ -772,11 +785,32 @@ export default function ReceiptDetail({
                                 <div>
                                     <p className="font-medium">{line.itemName}</p>
                                     <p className="text-muted mt-1 text-sm sm:hidden">
-                                        Approved: {line.quantity} {line.unit}
+                                        Ordered: {formatQuantity(
+                                            line.quantity,
+                                            line.purchaseUnit
+                                        )}
                                     </p>
+                                    {hasPurchaseConversion(
+                                        line.unit,
+                                        line.purchaseUnit,
+                                        line.unitsPerPurchaseUnit
+                                    ) && (
+                                        <p className="text-muted mt-1 text-sm">
+                                            Equivalent stock: {formatQuantity(
+                                                stockEquivalent(
+                                                    line.quantity,
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                line.unit
+                                            )}
+                                        </p>
+                                    )}
                                 </div>
-                                <p className="hidden w-36 sm:block">
-                                    {line.quantity} {line.unit}
+                                <p className="hidden w-44 sm:block">
+                                    {formatQuantity(
+                                        line.quantity,
+                                        line.purchaseUnit
+                                    )}
                                 </p>
                                 {request.status === "approved" ? (
                                     <div className="w-full sm:w-40">
@@ -810,7 +844,7 @@ export default function ReceiptDetail({
                                                 placeholder="0"
                                             />
                                             <span className="text-muted text-sm">
-                                                {line.unit}
+                                                {line.purchaseUnit}
                                             </span>
                                         </div>
                                     </div>
@@ -823,10 +857,28 @@ export default function ReceiptDetail({
                                                 : ""
                                         }`}
                                     >
-                                        {line.receivedQuantity ?? "Not recorded"}{" "}
-                                        {line.receivedQuantity !== null
-                                            ? line.unit
-                                            : ""}
+                                        {line.receivedQuantity === null
+                                            ? "Not recorded"
+                                            : formatQuantity(
+                                                  line.receivedQuantity,
+                                                  line.purchaseUnit
+                                              )}
+                                        {line.receivedQuantity !== null &&
+                                            hasPurchaseConversion(
+                                                line.unit,
+                                                line.purchaseUnit,
+                                                line.unitsPerPurchaseUnit
+                                            ) && (
+                                            <span className="text-muted mt-1 block text-xs font-normal">
+                                                {formatQuantity(
+                                                    stockEquivalent(
+                                                        line.receivedQuantity,
+                                                        line.unitsPerPurchaseUnit
+                                                    ),
+                                                    line.unit
+                                                )} stock
+                                            </span>
+                                        )}
                                     </p>
                                 )}
                             </div>

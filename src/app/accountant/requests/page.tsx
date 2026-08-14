@@ -88,6 +88,7 @@ export default function AccountantRequestsPage() {
     const [activeTab, setActiveTab] = useState("pending");
     const [dateFilter, setDateFilter] = useState<DateFilterValue>("any");
     const [pickedDate, setPickedDate] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -258,8 +259,16 @@ export default function AccountantRequestsPage() {
                 ? request.createdAt
                 : request.reviewedAt ?? request.createdAt;
 
+        const normalizedSearch = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+            !normalizedSearch ||
+            String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
+            request.requestedBy.toLowerCase().includes(normalizedSearch);
+
         return (
-            matchesTab && matchesDateFilter(eventDate, dateFilter, pickedDate)
+            matchesTab &&
+            matchesSearch &&
+            matchesDateFilter(eventDate, dateFilter, pickedDate)
         );
     });
 
@@ -302,6 +311,9 @@ export default function AccountantRequestsPage() {
                         onDateFilterChange={setDateFilter}
                         pickedDate={pickedDate}
                         onPickedDateChange={setPickedDate}
+                        searchQuery={searchQuery}
+                        onSearchQueryChange={setSearchQuery}
+                        searchPlaceholder="Search by request number or requester"
                     />
                 )}
 

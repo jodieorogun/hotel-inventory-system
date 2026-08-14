@@ -9,6 +9,11 @@ import RequestHistory, {
 } from "@/components/request-history";
 import { loadRequestHistory } from "@/lib/request-history";
 import { supabase } from "@/lib/supabase";
+import {
+    formatQuantity,
+    hasPurchaseConversion,
+    stockEquivalent,
+} from "@/lib/units";
 
 type RequestStatus = "approved" | "rejected";
 
@@ -44,6 +49,8 @@ type RequestLine = {
     itemName: string;
     quantity: number;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
     unitPrice: number;
 };
 
@@ -83,6 +90,8 @@ type ItemRow = {
     id: number;
     name: string;
     unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type UserRow = {
@@ -295,7 +304,7 @@ export default function RequestDetail({
 
             const { data: itemData, error: itemsError } = await supabase
                 .from("items")
-                .select("id, name, unit")
+                .select("id, name, unit, purchase_unit, units_per_purchase_unit")
                 .order("name");
 
             if (itemsError) {
@@ -370,6 +379,10 @@ export default function RequestDetail({
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
                         unit: item?.unit ?? "",
+                        purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                        unitsPerPurchaseUnit: Number(
+                            item?.units_per_purchase_unit ?? 1
+                        ),
                         unitPrice: Number(line.unit_price),
                     };
                 }),
@@ -523,6 +536,10 @@ export default function RequestDetail({
                               itemId: item.id,
                               itemName: item.name,
                               unit: item.unit,
+                              purchaseUnit: item.purchase_unit,
+                              unitsPerPurchaseUnit: Number(
+                                  item.units_per_purchase_unit
+                              ),
                           }
                         : line;
                 }
@@ -853,12 +870,48 @@ export default function RequestDetail({
                                 <div>
                                     <p className="font-medium">{line.itemName}</p>
                                     <p className="text-muted mt-1 text-sm sm:hidden">
-                                        {line.quantity} {line.unit} ×{" "}
+                                        {formatQuantity(
+                                            line.quantity,
+                                            line.purchaseUnit
+                                        )} ×{" "}
                                         {currencyFormatter.format(line.unitPrice)}
                                     </p>
+                                    {hasPurchaseConversion(
+                                        line.unit,
+                                        line.purchaseUnit,
+                                        line.unitsPerPurchaseUnit
+                                    ) && (
+                                        <p className="text-muted mt-1 text-xs sm:hidden">
+                                            Equivalent stock: {formatQuantity(
+                                                stockEquivalent(
+                                                    line.quantity,
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                line.unit
+                                            )}
+                                        </p>
+                                    )}
                                 </div>
                                 <p className="hidden w-28 sm:block">
-                                    {line.quantity} {line.unit}
+                                    {formatQuantity(
+                                        line.quantity,
+                                        line.purchaseUnit
+                                    )}
+                                    {hasPurchaseConversion(
+                                        line.unit,
+                                        line.purchaseUnit,
+                                        line.unitsPerPurchaseUnit
+                                    ) && (
+                                        <span className="text-muted mt-1 block text-xs">
+                                            {formatQuantity(
+                                                stockEquivalent(
+                                                    line.quantity,
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                line.unit
+                                            )} stock
+                                        </span>
+                                    )}
                                 </p>
                                 <p className="hidden w-36 text-right sm:block">
                                     {currencyFormatter.format(line.unitPrice)}
@@ -1002,7 +1055,7 @@ export default function RequestDetail({
                                     >
                                         {availableItems.map((item) => (
                                             <option key={item.id} value={item.id}>
-                                                {item.name} ({item.unit})
+                                                {item.name} ({item.purchase_unit})
                                             </option>
                                         ))}
                                     </select>
@@ -1013,7 +1066,7 @@ export default function RequestDetail({
                                                 htmlFor={`owner-quantity-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Quantity ({line.unit})
+                                                Quantity ({line.purchaseUnit})
                                             </label>
                                             <input
                                                 id={`owner-quantity-${line.id}`}
@@ -1039,7 +1092,7 @@ export default function RequestDetail({
                                                 htmlFor={`owner-price-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Unit price
+                                                Price per {line.purchaseUnit}
                                             </label>
                                             <input
                                                 id={`owner-price-${line.id}`}

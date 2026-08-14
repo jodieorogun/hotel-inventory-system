@@ -9,6 +9,7 @@ import RequestListFilters, {
     matchesDateFilter,
 } from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
+import { formatQuantity } from "@/lib/units";
 
 type ReceiptRequest = {
     id: number;
@@ -56,6 +57,7 @@ type UserRow = {
 type ItemRow = {
     id: number;
     name: string;
+    purchase_unit: string;
 };
 
 function formatDate(value: string) {
@@ -74,6 +76,7 @@ export default function StorekeeperReceiptsPage() {
     const [activeTab, setActiveTab] = useState("awaiting");
     const [dateFilter, setDateFilter] = useState<DateFilterValue>("any");
     const [pickedDate, setPickedDate] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -200,7 +203,7 @@ export default function StorekeeperReceiptsPage() {
             if (itemIds.length > 0) {
                 const { data: itemData, error: itemNamesError } = await supabase
                     .from("items")
-                    .select("id, name")
+                    .select("id, name, purchase_unit")
                     .in("id", itemIds);
 
                 if (itemNamesError) {
@@ -225,15 +228,21 @@ export default function StorekeeperReceiptsPage() {
                 userRows.map((profileRow) => [profileRow.id, profileRow.name])
             );
             const itemsById = new Map(
-                inventoryItems.map((item) => [item.id, item.name])
+                inventoryItems.map((item) => [item.id, item])
             );
             const formattedRequests = requestRows.map((request) => {
                 const requestItems = itemRows.filter(
                     (item) => item.request_id === request.id
                 );
                 const shownItems = requestItems.slice(0, 3).map(
-                    (item) =>
-                        `${itemsById.get(item.item_id) ?? "Unknown item"} ×${Number(item.quantity)}`
+                    (item) => {
+                        const inventoryItem = itemsById.get(item.item_id);
+
+                        return `${inventoryItem?.name ?? "Unknown item"} · ${formatQuantity(
+                            Number(item.quantity),
+                            inventoryItem?.purchase_unit ?? ""
+                        )}`;
+                    }
                 );
                 const remainingItems = requestItems.length - shownItems.length;
 
@@ -298,10 +307,19 @@ export default function StorekeeperReceiptsPage() {
         (Boolean(request.receiptIssueReason) &&
             !request.receiptIssueResolvedAt &&
             request.status !== "received");
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const matchesSearch = (request: ReceiptRequest) =>
+        !normalizedSearch ||
+        String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
+        request.itemSummary.toLowerCase().includes(normalizedSearch) ||
+        request.requestedBy.toLowerCase().includes(normalizedSearch) ||
+        request.approvedBy.toLowerCase().includes(normalizedSearch) ||
+        request.receiptIssueReason?.toLowerCase().includes(normalizedSearch);
     const waitingRequests = requests.filter(
         (request) =>
             request.status === "approved" &&
             !hasUnresolvedIssue(request) &&
+            matchesSearch(request) &&
             matchesDateFilter(
                 request.approvedAt ?? request.createdAt,
                 dateFilter,
@@ -311,6 +329,7 @@ export default function StorekeeperReceiptsPage() {
     const receivedRequests = requests.filter(
         (request) =>
             request.status === "received" &&
+            matchesSearch(request) &&
             matchesDateFilter(
                 request.receivedAt ?? request.createdAt,
                 dateFilter,
@@ -320,6 +339,7 @@ export default function StorekeeperReceiptsPage() {
     const issueRequests = requests.filter(
         (request) =>
             hasUnresolvedIssue(request) &&
+            matchesSearch(request) &&
             matchesDateFilter(
                 request.receiptIssueReportedAt ?? request.createdAt,
                 dateFilter,
@@ -366,6 +386,9 @@ export default function StorekeeperReceiptsPage() {
                         onDateFilterChange={setDateFilter}
                         pickedDate={pickedDate}
                         onPickedDateChange={setPickedDate}
+                        searchQuery={searchQuery}
+                        onSearchQueryChange={setSearchQuery}
+                        searchPlaceholder="Search by request number, item, or person"
                     />
                 )}
 

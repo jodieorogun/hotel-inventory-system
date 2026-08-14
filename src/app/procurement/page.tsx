@@ -9,6 +9,11 @@ import RequestListFilters, {
     matchesDateFilter,
 } from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
+import {
+    formatQuantity,
+    hasPurchaseConversion,
+    stockEquivalent,
+} from "@/lib/units";
 
 type ProcurementRequest = {
     id: number;
@@ -27,6 +32,8 @@ type RequestLine = {
     itemName: string;
     quantity: number;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
     unitPrice: number;
 };
 
@@ -53,6 +60,8 @@ type ItemRow = {
     id: number;
     name: string;
     unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-NG", {
@@ -134,6 +143,7 @@ export default function ProcurementRequestsPage() {
     const [activeTab, setActiveTab] = useState("active");
     const [dateFilter, setDateFilter] = useState<DateFilterValue>("any");
     const [pickedDate, setPickedDate] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -222,7 +232,7 @@ export default function ProcurementRequestsPage() {
 
             const { data: itemData, error: itemsError } = await supabase
                 .from("items")
-                .select("id, name, unit")
+                .select("id, name, unit, purchase_unit, units_per_purchase_unit")
                 .order("name");
 
             if (itemsError) {
@@ -266,6 +276,10 @@ export default function ProcurementRequestsPage() {
                             itemName: item?.name ?? "Unknown item",
                             quantity: Number(line.quantity),
                             unit: item?.unit ?? "",
+                            purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                            unitsPerPurchaseUnit: Number(
+                                item?.units_per_purchase_unit ?? 1
+                            ),
                             unitPrice: Number(line.unit_price),
                         };
                     }),
@@ -329,6 +343,10 @@ export default function ProcurementRequestsPage() {
                           itemId: item.id,
                           itemName: item.name,
                           unit: item.unit,
+                          purchaseUnit: item.purchase_unit,
+                          unitsPerPurchaseUnit: Number(
+                              item.units_per_purchase_unit
+                          ),
                       }
                     : line
             )
@@ -484,8 +502,22 @@ export default function ProcurementRequestsPage() {
                   ? request.reviewedAt ?? request.createdAt
                   : request.createdAt;
 
+        const normalizedSearch = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+            !normalizedSearch ||
+            String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
+            request.lines.some((line) =>
+                line.itemName.toLowerCase().includes(normalizedSearch)
+            ) ||
+            request.rejectionReason?.toLowerCase().includes(normalizedSearch) ||
+            request.ownerRejectionReason
+                ?.toLowerCase()
+                .includes(normalizedSearch);
+
         return (
-            matchesTab && matchesDateFilter(eventDate, dateFilter, pickedDate)
+            matchesTab &&
+            matchesSearch &&
+            matchesDateFilter(eventDate, dateFilter, pickedDate)
         );
     });
 
@@ -538,6 +570,9 @@ export default function ProcurementRequestsPage() {
                         onDateFilterChange={setDateFilter}
                         pickedDate={pickedDate}
                         onPickedDateChange={setPickedDate}
+                        searchQuery={searchQuery}
+                        onSearchQueryChange={setSearchQuery}
+                        searchPlaceholder="Search by request number, item, or rejection reason"
                     />
                 )}
 
@@ -614,12 +649,29 @@ export default function ProcurementRequestsPage() {
                                                         </p>
 
                                                         <p className="text-muted mt-1 text-sm">
-                                                            {line.quantity}{" "}
-                                                            {line.unit} ×{" "}
+                                                            {formatQuantity(
+                                                                line.quantity,
+                                                                line.purchaseUnit
+                                                            )} ×{" "}
                                                             {currencyFormatter.format(
                                                                 line.unitPrice
                                                             )}
                                                         </p>
+                                                        {hasPurchaseConversion(
+                                                            line.unit,
+                                                            line.purchaseUnit,
+                                                            line.unitsPerPurchaseUnit
+                                                        ) && (
+                                                            <p className="text-muted mt-1 text-xs">
+                                                                Equivalent stock: {formatQuantity(
+                                                                    stockEquivalent(
+                                                                        line.quantity,
+                                                                        line.unitsPerPurchaseUnit
+                                                                    ),
+                                                                    line.unit
+                                                                )}
+                                                            </p>
+                                                        )}
                                                     </div>
 
                                                     <p className="font-medium text-[var(--muted-strong)]">
@@ -729,7 +781,7 @@ export default function ProcurementRequestsPage() {
                                     >
                                         {availableItems.map((item) => (
                                             <option key={item.id} value={item.id}>
-                                                {item.name} ({item.unit})
+                                                {item.name} ({item.purchase_unit})
                                             </option>
                                         ))}
                                     </select>
@@ -739,7 +791,7 @@ export default function ProcurementRequestsPage() {
                                                 htmlFor={`quantity-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Quantity ({line.unit})
+                                                Quantity ({line.purchaseUnit})
                                             </label>
                                             <input
                                                 id={`quantity-${line.id}`}
@@ -762,7 +814,7 @@ export default function ProcurementRequestsPage() {
                                                 htmlFor={`price-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Unit price
+                                                Price per {line.purchaseUnit}
                                             </label>
                                             <input
                                                 id={`price-${line.id}`}
