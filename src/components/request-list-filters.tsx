@@ -1,3 +1,5 @@
+import ListSearch from "@/components/list-search";
+
 export type DateFilterValue =
     | "any"
     | "today"
@@ -60,6 +62,9 @@ export default function RequestListFilters({
     onDateFilterChange,
     pickedDate,
     onPickedDateChange,
+    searchQuery,
+    onSearchQueryChange,
+    searchPlaceholder = "Search requests",
 }: {
     tabs: Tab[];
     activeTab: string;
@@ -68,6 +73,9 @@ export default function RequestListFilters({
     onDateFilterChange: (filter: DateFilterValue) => void;
     pickedDate: string;
     onPickedDateChange: (date: string) => void;
+    searchQuery: string;
+    onSearchQueryChange: (query: string) => void;
+    searchPlaceholder?: string;
 }) {
     const dateOptions: { value: DateFilterValue; label: string }[] = [
         { value: "any", label: "Any Date" },
@@ -79,7 +87,16 @@ export default function RequestListFilters({
 
     return (
         <div className="surface-card mt-8 p-4 sm:p-5">
-            <div className="flex flex-wrap gap-2" aria-label="Request status">
+            <ListSearch
+                value={searchQuery}
+                onChange={onSearchQueryChange}
+                placeholder={searchPlaceholder}
+            />
+
+            <div
+                className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border)] pt-4"
+                aria-label="Request status"
+            >
                 {tabs.map((tab) => (
                     <button
                         key={tab.value}

@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel Inventory System
 
-## Getting Started
+A Next.js and Supabase application for the hotel purchase-request and stock-in workflow.
 
-First, run the development server:
+## Roles
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- `procurement` creates, modifies, resubmits, and escalates purchase requests.
+- `accountant` approves or rejects requests.
+- `storekeeper` records actual quantities received and confirms stock receipt.
+- `owner` can act across the full workflow and resolve escalations or receipt issues.
+
+## Local setup
+
+Create `.env.local` with:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then run:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application is available at [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+## Supabase contract
 
-To learn more about Next.js, take a look at the following resources:
+The frontend expects these main tables:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `users`
+- `items`
+- `purchase_requests`
+- `purchase_requests_items`
+- `purchase_request_events`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Each `items` row uses `unit` as the stock unit, `purchase_unit` as the unit
+Procurement orders, and `units_per_purchase_unit` as the receipt conversion.
+Each `purchase_requests_items` row snapshots its selected `purchase_unit` and
+`units_per_purchase_unit`, so Procurement can buy either the usual packaging or
+individual stock units without later item changes altering old requests.
+Requested and received quantities remain in the selected purchase unit;
+the Storekeeper records full purchase units plus loose stock units, and
+confirmed inventory is increased using the calculated actual stock-unit total.
 
-## Deploy on Vercel
+It also calls these database functions:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `create_purchase_request`
+- `resubmit_purchase_request`
+- `submit_purchase_receipt`
+- `return_receipt_to_storekeeper`
+- `accept_actual_purchase_receipt`
+- `void_purchase_receipt`
+- `owner_resubmit_rejected_request`
+- `owner_approve_rejected_request`
+- `owner_void_rejected_request`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The Supabase schema, RLS policies, triggers, and functions must be applied through the Supabase SQL Editor before the matching frontend is deployed. SQL is intentionally not stored in this repository.
+
+## Verification
+
+```bash
+npm run lint
+npm run build
+```
+
+The workflow should also be tested in Supabase using one account for each role. In particular, verify request creation, rejection and resubmission, Owner overrides, receipt mismatches, issue resolution, and inventory changes.

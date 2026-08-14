@@ -10,11 +10,19 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [signingIn, setSigningIn] = useState(false);
 
     async function handleLogin(
         event: React.FormEvent<HTMLFormElement>
     ) {
         event.preventDefault();
+
+        if (signingIn) {
+            return;
+        }
+
+        setSigningIn(true);
+        setErrorMessage("");
 
         const { error } = await supabase.auth.signInWithPassword({
             email,
@@ -23,6 +31,7 @@ export default function LoginPage() {
 
         if (error) {
             setErrorMessage(error.message);
+            setSigningIn(false);
             return;
         }
 
@@ -46,6 +55,16 @@ export default function LoginPage() {
 
                 <form
                     onSubmit={handleLogin}
+                    onKeyDown={(event) => {
+                        if (
+                            event.key === "Enter" &&
+                            !event.shiftKey &&
+                            event.target instanceof HTMLInputElement
+                        ) {
+                            event.preventDefault();
+                            event.currentTarget.requestSubmit();
+                        }
+                    }}
                     className="surface-card space-y-6 p-6 sm:p-8"
                 >
                     <div>
@@ -92,9 +111,10 @@ export default function LoginPage() {
 
                     <button
                         type="submit"
+                        disabled={signingIn}
                         className="primary-action w-full"
                     >
-                        Sign In
+                        {signingIn ? "Signing In..." : "Sign In"}
                     </button>
                 </form>
             </div>

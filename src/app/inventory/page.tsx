@@ -1,25 +1,89 @@
-import { supabase } from "@/lib/supabase";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import ListSearch from "@/components/list-search";
+import { supabase } from "@/lib/supabase";
+import { hasPurchaseConversion } from "@/lib/units";
 
-export default async function InventoryPage() {
-    const { data: items, error } = await supabase
-        .from("items")
-        .select("*");
+type InventoryItem = {
+    id: number;
+    name: string;
+    category: string;
+    current_quantity: number | string;
+    unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
+};
 
-    if (error) {
-        console.error("Error fetching items:", error);
+export default function InventoryPage() {
+    const router = useRouter();
+    const [items, setItems] = useState<InventoryItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadInventory() {
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                router.replace("/login");
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from("items")
+                .select("id, name, category, current_quantity, unit, purchase_unit, units_per_purchase_unit")
+                .order("name");
+
+            if (ignore) {
+                return;
+            }
+
+            if (error) {
+                console.error("Error fetching items:", error);
+                setErrorMessage("Could not load inventory items.");
+            } else {
+                setItems((data ?? []) as InventoryItem[]);
+            }
+
+            setLoading(false);
+        }
+
+        loadInventory();
+
+        return () => {
+            ignore = true;
+        };
+    }, [router]);
+
+    if (loading) {
         return (
             <main className="app-page">
                 <div className="mx-auto max-w-7xl">
                     <AppHeader />
-
-                    <p className="error-message">
-                        Could not load inventory items.
-                    </p>
+                    <p className="text-muted">Loading inventory...</p>
                 </div>
             </main>
         );
     }
+
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const filteredItems = items.filter(
+        (item) =>
+            !normalizedSearch ||
+            item.name.toLowerCase().includes(normalizedSearch) ||
+            item.category.toLowerCase().includes(normalizedSearch) ||
+            item.unit.toLowerCase().includes(normalizedSearch) ||
+            item.purchase_unit.toLowerCase().includes(normalizedSearch)
+    );
 
     return (
         <main className="app-page">
@@ -33,6 +97,21 @@ export default async function InventoryPage() {
                 <p className="page-description mb-8">
                     Current hotel stock
                 </p>
+
+                {errorMessage && (
+                    <p className="error-message mb-6" role="alert">
+                        {errorMessage}
+                    </p>
+                )}
+
+                {!errorMessage && (
+                    <ListSearch
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Search inventory by item, category, or unit"
+                        className="mb-5 max-w-xl"
+                    />
+                )}
 
                 <div className="surface-card overflow-x-auto">
                     <table className="w-full min-w-150 text-[var(--foreground)]">
@@ -51,13 +130,17 @@ export default async function InventoryPage() {
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
-                                    Unit
+                                    Stock Unit
+                                </th>
+
+                                <th className="px-7 py-5 text-left">
+                                    Purchased As
                                 </th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {items?.map((item) => (
+                            {filteredItems.map((item) => (
                                 <tr
                                     key={item.id}
                                     className="data-row"
@@ -77,8 +160,28 @@ export default async function InventoryPage() {
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {item.unit}
                                     </td>
+
+                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
+                                        {hasPurchaseConversion(
+                                            item.unit,
+                                            item.purchase_unit,
+                                            Number(item.units_per_purchase_unit)
+                                        )
+                                            ? `1 ${item.purchase_unit} = ${item.units_per_purchase_unit} ${item.unit}`
+                                            : "—"}
+                                    </td>
                                 </tr>
                             ))}
+                            {filteredItems.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={5}
+                                        className="text-muted px-7 py-10 text-center"
+                                    >
+                                        No inventory items match that search.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

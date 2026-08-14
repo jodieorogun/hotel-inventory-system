@@ -4,8 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
-import RequestHistory from "@/components/request-history";
+import PurchaseUnitChoice from "@/components/purchase-unit-choice";
+import RequestHistory, {
+    type RequestHistoryEntry,
+} from "@/components/request-history";
+import { loadRequestHistory } from "@/lib/request-history";
 import { supabase } from "@/lib/supabase";
+import {
+    formatQuantity,
+    hasPurchaseConversion,
+    stockEquivalent,
+} from "@/lib/units";
 
 type RequestStatus = "approved" | "rejected";
 
@@ -41,6 +50,8 @@ type RequestLine = {
     itemName: string;
     quantity: number;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
     unitPrice: number;
 };
 
@@ -74,12 +85,16 @@ type RequestLineRow = {
     item_id: number;
     quantity: number | string;
     unit_price: number | string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type ItemRow = {
     id: number;
     name: string;
     unit: string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type UserRow = {
@@ -146,7 +161,13 @@ function formatStatus(status: string) {
     };
 }
 
-export default function RequestDetail({ requestId }: { requestId: string }) {
+export default function RequestDetail({
+    requestId,
+    verifiedViewerRole,
+}: {
+    requestId: string;
+    verifiedViewerRole?: "owner";
+}) {
     const router = useRouter();
     const [request, setRequest] = useState<PurchaseRequest | null>(null);
     const [loading, setLoading] = useState(true);
@@ -162,6 +183,9 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
     const [ownerAction, setOwnerAction] = useState<
         "approve" | "resubmit" | "void" | null
     >(null);
+    const [historyEntries, setHistoryEntries] = useState<
+        RequestHistoryEntry[]
+    >([]);
 
     useEffect(() => {
         let ignore = false;
@@ -173,40 +197,44 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
-            const {
-                data: { user },
-                error: userError,
-            } = await supabase.auth.getUser();
+            if (verifiedViewerRole) {
+                setViewerRole(verifiedViewerRole);
+            } else {
+                const {
+                    data: { user },
+                    error: userError,
+                } = await supabase.auth.getUser();
 
-            if (userError || !user) {
-                router.replace("/login");
-                return;
-            }
-
-            const { data: profile, error: profileError } = await supabase
-                .from("users")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-
-            if (profileError) {
-                console.error("Error checking accountant role:", profileError);
-
-                if (!ignore) {
-                    setErrorMessage("Could not verify your account permissions.");
-                    setLoading(false);
+                if (userError || !user) {
+                    router.replace("/login");
+                    return;
                 }
 
-                return;
-            }
+                const { data: profile, error: profileError } = await supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single();
 
-            if (!["accountant", "owner"].includes(profile.role)) {
-                router.replace("/dashboard");
-                return;
-            }
+                if (profileError) {
+                    console.error("Error checking accountant role:", profileError);
 
-            if (!ignore) {
-                setViewerRole(profile.role);
+                    if (!ignore) {
+                        setErrorMessage("Could not verify your account permissions.");
+                        setLoading(false);
+                    }
+
+                    return;
+                }
+
+                if (!["accountant", "owner"].includes(profile.role)) {
+                    router.replace("/dashboard");
+                    return;
+                }
+
+                if (!ignore) {
+                    setViewerRole(profile.role);
+                }
             }
 
             const { data: requestData, error: requestError } = await supabase
@@ -251,7 +279,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("id, item_id, quantity, unit_price")
+                    .select("id, item_id, quantity, unit_price, purchase_unit, units_per_purchase_unit")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
                 supabase
@@ -279,7 +307,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
 
             const { data: itemData, error: itemsError } = await supabase
                 .from("items")
-                .select("id, name, unit")
+                .select("id, name, unit, purchase_unit, units_per_purchase_unit")
                 .order("name");
 
             if (itemsError) {
@@ -354,14 +382,26 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
                         unit: item?.unit ?? "",
+                        purchaseUnit:
+                            line.purchase_unit ??
+                            item?.purchase_unit ??
+                            item?.unit ??
+                            "",
+                        unitsPerPurchaseUnit: Number(
+                            line.units_per_purchase_unit ??
+                                item?.units_per_purchase_unit ??
+                                1
+                        ),
                         unitPrice: Number(line.unit_price),
                     };
                 }),
             };
+            const durableHistory = await loadRequestHistory(requestRow.id);
 
             if (!ignore) {
                 setAvailableItems(itemRows);
                 setRequest(formattedRequest);
+                setHistoryEntries(durableHistory);
                 setLoading(false);
             }
         }
@@ -371,7 +411,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         return () => {
             ignore = true;
         };
-    }, [requestId, router]);
+    }, [requestId, router, verifiedViewerRole]);
 
     async function updateRequestStatus(
         status: RequestStatus,
@@ -424,6 +464,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             : {
                   accountant_approved_by: user.id,
                   accountant_approved_at: new Date().toISOString(),
+                  accountant_decision: status,
               };
         const currentStatus = request.status;
         const { data, error } = await supabase
@@ -504,6 +545,10 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                               itemId: item.id,
                               itemName: item.name,
                               unit: item.unit,
+                              purchaseUnit: item.purchase_unit,
+                              unitsPerPurchaseUnit: Number(
+                                  item.units_per_purchase_unit
+                              ),
                           }
                         : line;
                 }
@@ -526,11 +571,25 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         if (
             ownerEditLines.length === 0 ||
             ownerEditLines.some(
-                (line) => line.quantity <= 0 || line.unitPrice < 0
+                (line) =>
+                    line.quantity <= 0 ||
+                    line.unitPrice < 0 ||
+                    !line.purchaseUnit.trim() ||
+                    !Number.isInteger(line.unitsPerPurchaseUnit) ||
+                    line.unitsPerPurchaseUnit < 1
             )
         ) {
             setErrorMessage(
                 "Every item needs a quantity above zero and a valid unit price."
+            );
+            return;
+        }
+
+        const selectedItemIds = ownerEditLines.map((line) => line.itemId);
+
+        if (new Set(selectedItemIds).size !== selectedItemIds.length) {
+            setErrorMessage(
+                "Each inventory item can only appear once in a purchase request."
             );
             return;
         }
@@ -545,6 +604,8 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 item_id: line.itemId,
                 quantity: line.quantity,
                 unit_price: line.unitPrice,
+                purchase_unit: line.purchaseUnit,
+                units_per_purchase_unit: line.unitsPerPurchaseUnit,
             })),
         });
 
@@ -709,7 +770,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 )}
 
                 <RequestHistory
-                    entries={[
+                    entries={historyEntries.length > 0 ? historyEntries : [
                         {
                             action: "Requested",
                             person: request.requestedBy,
@@ -825,12 +886,48 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                 <div>
                                     <p className="font-medium">{line.itemName}</p>
                                     <p className="text-muted mt-1 text-sm sm:hidden">
-                                        {line.quantity} {line.unit} ×{" "}
+                                        {formatQuantity(
+                                            line.quantity,
+                                            line.purchaseUnit
+                                        )} ×{" "}
                                         {currencyFormatter.format(line.unitPrice)}
                                     </p>
+                                    {hasPurchaseConversion(
+                                        line.unit,
+                                        line.purchaseUnit,
+                                        line.unitsPerPurchaseUnit
+                                    ) && (
+                                        <p className="text-muted mt-1 text-xs sm:hidden">
+                                            Equivalent stock: {formatQuantity(
+                                                stockEquivalent(
+                                                    line.quantity,
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                line.unit
+                                            )}
+                                        </p>
+                                    )}
                                 </div>
                                 <p className="hidden w-28 sm:block">
-                                    {line.quantity} {line.unit}
+                                    {formatQuantity(
+                                        line.quantity,
+                                        line.purchaseUnit
+                                    )}
+                                    {hasPurchaseConversion(
+                                        line.unit,
+                                        line.purchaseUnit,
+                                        line.unitsPerPurchaseUnit
+                                    ) && (
+                                        <span className="text-muted mt-1 block text-xs">
+                                            {formatQuantity(
+                                                stockEquivalent(
+                                                    line.quantity,
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                line.unit
+                                            )} stock
+                                        </span>
+                                    )}
                                 </p>
                                 <p className="hidden w-36 text-right sm:block">
                                     {currencyFormatter.format(line.unitPrice)}
@@ -974,10 +1071,55 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                     >
                                         {availableItems.map((item) => (
                                             <option key={item.id} value={item.id}>
-                                                {item.name} ({item.unit})
+                                                {item.name} ({item.purchase_unit})
                                             </option>
                                         ))}
                                     </select>
+
+                                    {(() => {
+                                        const selectedItem = availableItems.find(
+                                            (item) => item.id === line.itemId
+                                        );
+
+                                        return selectedItem ? (
+                                            <div className="mt-4">
+                                                <PurchaseUnitChoice
+                                                    id={`owner-purchase-unit-${line.id}`}
+                                                    unit={selectedItem.unit}
+                                                    defaultPurchaseUnit={
+                                                        selectedItem.purchase_unit
+                                                    }
+                                                    defaultUnitsPerPurchaseUnit={Number(
+                                                        selectedItem.units_per_purchase_unit
+                                                    )}
+                                                    purchaseUnit={line.purchaseUnit}
+                                                    unitsPerPurchaseUnit={
+                                                        line.unitsPerPurchaseUnit
+                                                    }
+                                                    onChange={(
+                                                        purchaseUnit,
+                                                        conversion
+                                                    ) =>
+                                                        setOwnerEditLines((lines) =>
+                                                            lines.map((editLine) =>
+                                                                editLine.id === line.id
+                                                                    ? {
+                                                                          ...editLine,
+                                                                          purchaseUnit,
+                                                                          unitsPerPurchaseUnit:
+                                                                              conversion,
+                                                                      }
+                                                                    : editLine
+                                                            )
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        ownerAction === "resubmit"
+                                                    }
+                                                />
+                                            </div>
+                                        ) : null;
+                                    })()}
 
                                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                         <div>
@@ -985,7 +1127,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                                 htmlFor={`owner-quantity-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Quantity ({line.unit})
+                                                Quantity ({line.purchaseUnit})
                                             </label>
                                             <input
                                                 id={`owner-quantity-${line.id}`}
@@ -1011,7 +1153,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                                 htmlFor={`owner-price-${line.id}`}
                                                 className="form-label"
                                             >
-                                                Unit price
+                                                Price per {line.purchaseUnit}
                                             </label>
                                             <input
                                                 id={`owner-price-${line.id}`}

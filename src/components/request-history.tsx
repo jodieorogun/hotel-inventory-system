@@ -24,10 +24,31 @@ export default function RequestHistory({
         return null;
     }
 
-    const orderedEntries = [...entries].sort(
+    const entriesByEvent = new Map<string, RequestHistoryEntry>();
+
+    for (const entry of entries) {
+        const eventKey = [
+            entry.action.trim().toLowerCase(),
+            entry.person.trim().toLowerCase(),
+            entry.timestamp,
+        ].join("|");
+        const existingEntry = entriesByEvent.get(eventKey);
+
+        // A database trigger and an RPC can occasionally record the same
+        // workflow event in one transaction. Keep one row, preferring the
+        // version with useful detail.
+        if (
+            !existingEntry ||
+            (!existingEntry.detail && Boolean(entry.detail))
+        ) {
+            entriesByEvent.set(eventKey, entry);
+        }
+    }
+
+    const orderedEntries = [...entriesByEvent.entries()].sort(
         (first, second) =>
-            new Date(first.timestamp).getTime() -
-            new Date(second.timestamp).getTime()
+            new Date(first[1].timestamp).getTime() -
+            new Date(second[1].timestamp).getTime()
     );
 
     return (
@@ -35,9 +56,9 @@ export default function RequestHistory({
             <h2 className="text-lg font-semibold">Request History</h2>
 
             <ol className="mt-5 space-y-5">
-                {orderedEntries.map((entry, index) => (
+                {orderedEntries.map(([eventKey, entry], index) => (
                     <li
-                        key={`${entry.action}-${entry.timestamp}`}
+                        key={eventKey}
                         className="relative flex gap-4"
                     >
                         <div className="relative flex w-3 shrink-0 justify-center">

@@ -3,18 +3,28 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import PurchaseUnitChoice from "@/components/purchase-unit-choice";
 import { supabase } from "@/lib/supabase";
+import {
+    formatQuantity,
+    hasPurchaseConversion,
+    stockEquivalent,
+} from "@/lib/units";
 
 type Item = {
     id: number;
     name: string;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
 };
 
 type RequestLine = {
     itemId: string;
     quantity: string;
     unitPrice: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
 };
 
 type NewItemForm = {
@@ -22,6 +32,8 @@ type NewItemForm = {
     name: string;
     category: string;
     unit: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: string;
 };
 
 export default function NewProcurementRequestPage() {
@@ -33,6 +45,8 @@ export default function NewProcurementRequestPage() {
             itemId: "",
             quantity: "",
             unitPrice: "",
+            purchaseUnit: "",
+            unitsPerPurchaseUnit: 1,
         },
     ]);
     const [itemSearches, setItemSearches] = useState([""]);
@@ -45,11 +59,47 @@ export default function NewProcurementRequestPage() {
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
+        let ignore = false;
+
         async function loadItems() {
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                router.replace("/login");
+                return;
+            }
+
+            const { data: profile, error: profileError } = await supabase
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .single();
+
+            if (profileError) {
+                console.error("Error checking procurement role:", profileError);
+                if (!ignore) {
+                    setErrorMessage("Could not verify your account permissions.");
+                    setLoading(false);
+                }
+                return;
+            }
+
+            if (!["procurement", "owner"].includes(profile.role)) {
+                router.replace("/dashboard");
+                return;
+            }
+
             const { data, error } = await supabase
                 .from("items")
-                .select("id, name, unit")
+                .select("id, name, unit, purchase_unit, units_per_purchase_unit")
                 .order("name");
+
+            if (ignore) {
+                return;
+            }
 
             if (error) {
                 console.error("Error loading items:", error);
@@ -58,17 +108,29 @@ export default function NewProcurementRequestPage() {
                 return;
             }
 
-            setItems(data ?? []);
+            setItems(
+                (data ?? []).map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    unit: item.unit,
+                    purchaseUnit: item.purchase_unit,
+                    unitsPerPurchaseUnit: Number(item.units_per_purchase_unit),
+                }))
+            );
             setLoading(false);
         }
 
         loadItems();
-    }, []);
+
+        return () => {
+            ignore = true;
+        };
+    }, [router]);
 
     function updateRequestLine(
         index: number,
         field: keyof RequestLine,
-        value: string
+        value: string | number
     ) {
         const updatedLines = [...requestLines];
 
@@ -87,6 +149,8 @@ export default function NewProcurementRequestPage() {
                 itemId: "",
                 quantity: "",
                 unitPrice: "",
+                purchaseUnit: "",
+                unitsPerPurchaseUnit: 1,
             },
         ]);
         setItemSearches([...itemSearches, ""]);
@@ -120,7 +184,14 @@ export default function NewProcurementRequestPage() {
     }
 
     function selectItem(index: number, item: Item) {
-        updateRequestLine(index, "itemId", String(item.id));
+        const updatedLines = [...requestLines];
+        updatedLines[index] = {
+            ...updatedLines[index],
+            itemId: String(item.id),
+            purchaseUnit: item.purchaseUnit,
+            unitsPerPurchaseUnit: item.unitsPerPurchaseUnit,
+        };
+        setRequestLines(updatedLines);
         setItemSearches((searches) =>
             searches.map((search, lineIndex) =>
                 lineIndex === index ? item.name : search
@@ -140,8 +211,19 @@ export default function NewProcurementRequestPage() {
         const name = newItemForm.name.trim();
         const category = newItemForm.category.trim();
         const unit = newItemForm.unit.trim();
+        const purchaseUnit = newItemForm.purchaseUnit.trim();
+        const unitsPerPurchaseUnit = Number(
+            newItemForm.unitsPerPurchaseUnit
+        );
 
-        if (!name || !category || !unit) {
+        if (
+            !name ||
+            !category ||
+            !unit ||
+            !purchaseUnit ||
+            !Number.isInteger(unitsPerPurchaseUnit) ||
+            unitsPerPurchaseUnit < 1
+        ) {
             setErrorMessage("Please complete the new item fields.");
             return;
         }
@@ -167,9 +249,11 @@ export default function NewProcurementRequestPage() {
                 name,
                 category,
                 unit,
+                purchase_unit: purchaseUnit,
+                units_per_purchase_unit: unitsPerPurchaseUnit,
                 current_quantity: 0,
             })
-            .select("id, name, unit")
+            .select("id, name, unit, purchase_unit, units_per_purchase_unit")
             .single();
 
         setAddingItem(false);
@@ -180,12 +264,20 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
+        const addedItem: Item = {
+            id: data.id,
+            name: data.name,
+            unit: data.unit,
+            purchaseUnit: data.purchase_unit,
+            unitsPerPurchaseUnit: Number(data.units_per_purchase_unit),
+        };
+
         setItems((currentItems) =>
-            [...currentItems, data].sort((first, second) =>
+            [...currentItems, addedItem].sort((first, second) =>
                 first.name.localeCompare(second.name)
             )
         );
-        selectItem(newItemForm.lineIndex, data);
+        selectItem(newItemForm.lineIndex, addedItem);
     }
 
     async function handleSubmit() {
@@ -203,6 +295,17 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
+        const selectedItemIds = requestLines.map((line) => line.itemId);
+        const hasDuplicateItem =
+            new Set(selectedItemIds).size !== selectedItemIds.length;
+
+        if (hasDuplicateItem) {
+            setErrorMessage(
+                "Each inventory item can only appear once in a purchase request."
+            );
+            return;
+        }
+
         const hasEmptyFields = requestLines.some(
             (line) => !line.quantity || !line.unitPrice
         );
@@ -215,7 +318,10 @@ export default function NewProcurementRequestPage() {
         const hasInvalidNumbers = requestLines.some(
             (line) =>
                 Number(line.quantity) <= 0 ||
-                Number(line.unitPrice) < 0
+                Number(line.unitPrice) < 0 ||
+                !line.purchaseUnit.trim() ||
+                !Number.isInteger(line.unitsPerPurchaseUnit) ||
+                line.unitsPerPurchaseUnit < 1
         );
 
         if (hasInvalidNumbers) {
@@ -238,22 +344,19 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
-        const { data: request, error: requestError } =
-            await supabase
-                .from("purchase_requests")
-                .insert({
-                    requested_by: user.id,
-                    status: "pending_accountant",
-                    accountant_approved_by: null,
-                    accountant_approved_at: null,
-                    storekeeper_verified_by: null,
-                    storekeeper_verified_at: null,
-                    rejection_reason: null,
-                })
-                .select("id")
-                .single();
+        const requestItems = requestLines.map((line) => ({
+            item_id: Number(line.itemId),
+            quantity: Number(line.quantity),
+            unit_price: Number(line.unitPrice),
+            purchase_unit: line.purchaseUnit,
+            units_per_purchase_unit: line.unitsPerPurchaseUnit,
+        }));
+        const { data: requestId, error: requestError } = await supabase.rpc(
+            "create_purchase_request",
+            { request_items: requestItems }
+        );
 
-        if (requestError || !request) {
+        if (requestError || requestId === null) {
             console.error(
                 "Error creating procurement request:",
                 requestError
@@ -261,31 +364,6 @@ export default function NewProcurementRequestPage() {
 
             setErrorMessage(
                 "Could not create the purchase request."
-            );
-
-            setSubmitting(false);
-            return;
-        }
-
-        const requestItems = requestLines.map((line) => ({
-            request_id: request.id,
-            item_id: Number(line.itemId),
-            quantity: Number(line.quantity),
-            unit_price: Number(line.unitPrice),
-        }));
-
-        const { error: itemsError } = await supabase
-            .from("purchase_requests_items")
-            .insert(requestItems);
-
-        if (itemsError) {
-            console.error(
-                "Error adding procurement request items:",
-                itemsError
-            );
-
-            setErrorMessage(
-                "The request was created, but the items could not be added."
             );
 
             setSubmitting(false);
@@ -324,7 +402,12 @@ export default function NewProcurementRequestPage() {
                 </p>
 
                 <div className="mt-8 space-y-4">
-                    {requestLines.map((line, index) => (
+                    {requestLines.map((line, index) => {
+                        const selectedItem = items.find(
+                            (item) => String(item.id) === line.itemId
+                        );
+
+                        return (
                         <div
                             key={index}
                             className="surface-card p-6 lg:p-7"
@@ -382,7 +465,18 @@ export default function NewProcurementRequestPage() {
                                                         onClick={() => selectItem(index, item)}
                                                         className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--surface-hover)]"
                                                     >
-                                                        {item.name} ({item.unit})
+                                                        <span className="block font-medium">
+                                                            {item.name}
+                                                        </span>
+                                                        {hasPurchaseConversion(
+                                                            item.unit,
+                                                            item.purchaseUnit,
+                                                            item.unitsPerPurchaseUnit
+                                                        ) && (
+                                                            <span className="text-muted mt-0.5 block text-xs">
+                                                                Bought by {item.purchaseUnit} · {item.unitsPerPurchaseUnit} {item.unit} per {item.purchaseUnit}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 ))}
 
@@ -400,6 +494,8 @@ export default function NewProcurementRequestPage() {
                                                                     name: itemSearches[index].trim(),
                                                                     category: "",
                                                                     unit: "",
+                                                                    purchaseUnit: "",
+                                                                    unitsPerPurchaseUnit: "1",
                                                                 });
                                                                 setOpenItemSearchIndex(null);
                                                             }}
@@ -416,7 +512,9 @@ export default function NewProcurementRequestPage() {
 
                                 <div>
                                     <label className="form-label">
-                                        Quantity
+                                        Quantity{selectedItem
+                                            ? ` (${line.purchaseUnit})`
+                                            : ""}
                                     </label>
 
                                     <input
@@ -433,11 +531,29 @@ export default function NewProcurementRequestPage() {
                                         className="form-control"
                                         placeholder="e.g. 10"
                                     />
+                                    {selectedItem &&
+                                        hasPurchaseConversion(
+                                            selectedItem.unit,
+                                            line.purchaseUnit,
+                                            line.unitsPerPurchaseUnit
+                                        ) &&
+                                        line.quantity &&
+                                        Number(line.quantity) > 0 && (
+                                        <p className="text-muted mt-2 text-sm">
+                                            Equivalent stock: {formatQuantity(
+                                                stockEquivalent(
+                                                    Number(line.quantity),
+                                                    line.unitsPerPurchaseUnit
+                                                ),
+                                                selectedItem.unit
+                                            )}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <label className="form-label">
-                                        Unit Price
+                                        Price per {line.purchaseUnit || "purchase unit"}
                                     </label>
 
                                     <input
@@ -457,6 +573,32 @@ export default function NewProcurementRequestPage() {
                                 </div>
                             </div>
 
+                            {selectedItem && (
+                                <div className="mt-4">
+                                    <PurchaseUnitChoice
+                                        id={`purchase-unit-${index}`}
+                                        unit={selectedItem.unit}
+                                        defaultPurchaseUnit={selectedItem.purchaseUnit}
+                                        defaultUnitsPerPurchaseUnit={
+                                            selectedItem.unitsPerPurchaseUnit
+                                        }
+                                        purchaseUnit={line.purchaseUnit}
+                                        unitsPerPurchaseUnit={
+                                            line.unitsPerPurchaseUnit
+                                        }
+                                        onChange={(purchaseUnit, conversion) => {
+                                            const updatedLines = [...requestLines];
+                                            updatedLines[index] = {
+                                                ...updatedLines[index],
+                                                purchaseUnit,
+                                                unitsPerPurchaseUnit: conversion,
+                                            };
+                                            setRequestLines(updatedLines);
+                                        }}
+                                    />
+                                </div>
+                            )}
+
                             {newItemForm?.lineIndex === index && (
                                 <form
                                     onSubmit={handleAddItem}
@@ -464,7 +606,7 @@ export default function NewProcurementRequestPage() {
                                 >
                                     <h2 className="font-semibold">Add New Item</h2>
 
-                                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
                                             <label className="form-label">Name</label>
                                             <input
@@ -498,7 +640,7 @@ export default function NewProcurementRequestPage() {
                                         </div>
 
                                         <div>
-                                            <label className="form-label">Unit</label>
+                                            <label className="form-label">Stock unit</label>
                                             <input
                                                 type="text"
                                                 value={newItemForm.unit}
@@ -509,6 +651,44 @@ export default function NewProcurementRequestPage() {
                                                     })
                                                 }
                                                 className="form-control"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">Purchase unit</label>
+                                            <input
+                                                type="text"
+                                                value={newItemForm.purchaseUnit}
+                                                onChange={(event) =>
+                                                    setNewItemForm({
+                                                        ...newItemForm,
+                                                        purchaseUnit: event.target.value,
+                                                    })
+                                                }
+                                                className="form-control"
+                                                placeholder="e.g. pack"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="form-label">
+                                                Stock units in one purchase unit
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                value={newItemForm.unitsPerPurchaseUnit}
+                                                onChange={(event) =>
+                                                    setNewItemForm({
+                                                        ...newItemForm,
+                                                        unitsPerPurchaseUnit: event.target.value,
+                                                    })
+                                                }
+                                                className="form-control"
+                                                placeholder="e.g. 12"
                                                 required
                                             />
                                         </div>
@@ -545,7 +725,8 @@ export default function NewProcurementRequestPage() {
                                 </button>
                             )}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <button
