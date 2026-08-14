@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import RequestListFilters, {
+    DateFilterValue,
+    matchesDateFilter,
+} from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
 
 type ReceiptRequest = {
     id: number;
     status: string;
     createdAt: string;
+    approvedAt: string | null;
     receivedAt: string | null;
     requestedBy: string;
     approvedBy: string;
@@ -17,7 +22,9 @@ type ReceiptRequest = {
     receiptIssueReason: string | null;
     receiptIssueReportedAt: string | null;
     receiptIssueReportedBy: string | null;
+    receiptIssueResolvedAt: string | null;
     itemCount: number;
+    itemSummary: string;
 };
 
 type RequestRow = {
@@ -26,19 +33,28 @@ type RequestRow = {
     created_at: string;
     requested_by: string;
     accountant_approved_by: string | null;
+    accountant_approved_at: string | null;
     storekeeper_verified_by: string | null;
     storekeeper_verified_at: string | null;
     receipt_issue_reason: string | null;
     receipt_issue_reported_by: string | null;
     receipt_issue_reported_at: string | null;
+    receipt_issue_resolved_at: string | null;
 };
 
 type RequestItemRow = {
     request_id: number;
+    item_id: number;
+    quantity: number | string;
 };
 
 type UserRow = {
     id: string;
+    name: string;
+};
+
+type ItemRow = {
+    id: number;
     name: string;
 };
 
@@ -55,6 +71,9 @@ export default function StorekeeperReceiptsPage() {
     const [requests, setRequests] = useState<ReceiptRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
+    const [activeTab, setActiveTab] = useState("awaiting");
+    const [dateFilter, setDateFilter] = useState<DateFilterValue>("any");
+    const [pickedDate, setPickedDate] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -68,6 +87,18 @@ export default function StorekeeperReceiptsPage() {
             if (userError || !user) {
                 router.replace("/login");
                 return;
+            }
+
+            const requestedTab = new URLSearchParams(
+                window.location.search
+            ).get("tab");
+
+            if (
+                ["awaiting", "issues", "received", "all"].includes(
+                    requestedTab ?? ""
+                )
+            ) {
+                setActiveTab(requestedTab!);
             }
 
             const { data: profile, error: profileError } = await supabase
@@ -87,7 +118,7 @@ export default function StorekeeperReceiptsPage() {
                 return;
             }
 
-            if (profile.role !== "storekeeper") {
+            if (!["storekeeper", "owner"].includes(profile.role)) {
                 router.replace("/dashboard");
                 return;
             }
@@ -95,9 +126,11 @@ export default function StorekeeperReceiptsPage() {
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_at"
                 )
-                .in("status", ["approved", "received", "receipt_issue"])
+                .or(
+                    "status.in.(approved,received,receipt_issue),receipt_issue_reason.not.is.null"
+                )
                 .order("created_at", { ascending: false });
 
             if (requestsError) {
@@ -138,9 +171,12 @@ export default function StorekeeperReceiptsPage() {
             const [itemsResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("request_id")
+                    .select("request_id, item_id, quantity")
                     .in("request_id", requestIds),
-                supabase.from("users").select("id, name").in("id", userIds),
+                supabase
+                    .from("users")
+                    .select("id, name")
+                    .in("id", userIds),
             ]);
 
             if (itemsResult.error || usersResult.error) {
@@ -158,35 +194,80 @@ export default function StorekeeperReceiptsPage() {
             }
 
             const itemRows = (itemsResult.data ?? []) as RequestItemRow[];
+            const itemIds = [...new Set(itemRows.map((item) => item.item_id))];
+            let inventoryItems: ItemRow[] = [];
+
+            if (itemIds.length > 0) {
+                const { data: itemData, error: itemNamesError } = await supabase
+                    .from("items")
+                    .select("id, name")
+                    .in("id", itemIds);
+
+                if (itemNamesError) {
+                    console.error(
+                        "Error loading receipt item names:",
+                        itemNamesError
+                    );
+
+                    if (!ignore) {
+                        setErrorMessage("Could not load the receipt item summary.");
+                        setLoading(false);
+                    }
+
+                    return;
+                }
+
+                inventoryItems = (itemData ?? []) as ItemRow[];
+            }
+
             const userRows = (usersResult.data ?? []) as UserRow[];
             const usersById = new Map(
                 userRows.map((profileRow) => [profileRow.id, profileRow.name])
             );
-            const formattedRequests = requestRows.map((request) => ({
-                id: request.id,
-                status: request.status,
-                createdAt: request.created_at,
-                receivedAt: request.storekeeper_verified_at,
-                requestedBy:
-                    usersById.get(request.requested_by) ?? "Procurement user",
-                approvedBy: request.accountant_approved_by
-                    ? (usersById.get(request.accountant_approved_by) ??
-                      "Accountant")
-                    : "Not recorded",
-                receivedBy: request.storekeeper_verified_by
-                    ? (usersById.get(request.storekeeper_verified_by) ??
-                      "Storekeeper")
-                    : null,
-                receiptIssueReason: request.receipt_issue_reason,
-                receiptIssueReportedAt: request.receipt_issue_reported_at,
-                receiptIssueReportedBy: request.receipt_issue_reported_by
-                    ? (usersById.get(request.receipt_issue_reported_by) ??
-                      "Storekeeper")
-                    : null,
-                itemCount: itemRows.filter(
+            const itemsById = new Map(
+                inventoryItems.map((item) => [item.id, item.name])
+            );
+            const formattedRequests = requestRows.map((request) => {
+                const requestItems = itemRows.filter(
                     (item) => item.request_id === request.id
-                ).length,
-            }));
+                );
+                const shownItems = requestItems.slice(0, 3).map(
+                    (item) =>
+                        `${itemsById.get(item.item_id) ?? "Unknown item"} ×${Number(item.quantity)}`
+                );
+                const remainingItems = requestItems.length - shownItems.length;
+
+                return {
+                    id: request.id,
+                    status: request.status,
+                    createdAt: request.created_at,
+                    approvedAt: request.accountant_approved_at,
+                    receivedAt: request.storekeeper_verified_at,
+                    requestedBy:
+                        usersById.get(request.requested_by) ?? "Procurement user",
+                    approvedBy: request.accountant_approved_by
+                        ? (usersById.get(request.accountant_approved_by) ??
+                          "Accountant")
+                        : "Not recorded",
+                    receivedBy: request.storekeeper_verified_by
+                        ? (usersById.get(request.storekeeper_verified_by) ??
+                          "Storekeeper")
+                        : null,
+                    receiptIssueReason: request.receipt_issue_reason,
+                    receiptIssueReportedAt: request.receipt_issue_reported_at,
+                    receiptIssueReportedBy: request.receipt_issue_reported_by
+                        ? (usersById.get(request.receipt_issue_reported_by) ??
+                          "Storekeeper")
+                        : null,
+                    receiptIssueResolvedAt: request.receipt_issue_resolved_at,
+                    itemCount: requestItems.length,
+                    itemSummary: `${shownItems.join(", ")}${
+                        remainingItems > 0
+                            ? ` + ${remainingItems} more ${remainingItems === 1 ? "item" : "items"}`
+                            : ""
+                    }`,
+                };
+            });
 
             if (!ignore) {
                 setRequests(formattedRequests);
@@ -212,15 +293,46 @@ export default function StorekeeperReceiptsPage() {
         );
     }
 
+    const hasUnresolvedIssue = (request: ReceiptRequest) =>
+        request.status === "receipt_issue" ||
+        (Boolean(request.receiptIssueReason) &&
+            !request.receiptIssueResolvedAt &&
+            request.status !== "received");
     const waitingRequests = requests.filter(
-        (request) => request.status === "approved"
+        (request) =>
+            request.status === "approved" &&
+            !hasUnresolvedIssue(request) &&
+            matchesDateFilter(
+                request.approvedAt ?? request.createdAt,
+                dateFilter,
+                pickedDate
+            )
     );
     const receivedRequests = requests.filter(
-        (request) => request.status === "received"
+        (request) =>
+            request.status === "received" &&
+            matchesDateFilter(
+                request.receivedAt ?? request.createdAt,
+                dateFilter,
+                pickedDate
+            )
     );
     const issueRequests = requests.filter(
-        (request) => request.status === "receipt_issue"
+        (request) =>
+            hasUnresolvedIssue(request) &&
+            matchesDateFilter(
+                request.receiptIssueReportedAt ?? request.createdAt,
+                dateFilter,
+                pickedDate
+            )
     );
+
+    function changeTab(tab: string) {
+        setActiveTab(tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", tab);
+        window.history.replaceState(null, "", url);
+    }
 
     return (
         <main className="app-page">
@@ -241,8 +353,30 @@ export default function StorekeeperReceiptsPage() {
                 )}
 
                 {!errorMessage && (
+                    <RequestListFilters
+                        tabs={[
+                            { value: "awaiting", label: "Awaiting Receipt" },
+                            { value: "issues", label: "Receipt Issues" },
+                            { value: "received", label: "Received" },
+                            { value: "all", label: "All" },
+                        ]}
+                        activeTab={activeTab}
+                        onTabChange={changeTab}
+                        dateFilter={dateFilter}
+                        onDateFilterChange={setDateFilter}
+                        pickedDate={pickedDate}
+                        onPickedDateChange={setPickedDate}
+                    />
+                )}
+
+                {!errorMessage && (
                     <>
-                        <section className="mt-8" aria-labelledby="waiting-heading">
+                        {(activeTab === "awaiting" || activeTab === "all") && (
+                        <section
+                            id="awaiting-receipt"
+                            className="mt-8 scroll-mt-6"
+                            aria-labelledby="waiting-heading"
+                        >
                             <h2 id="waiting-heading" className="text-xl font-semibold">
                                 Awaiting Receipt
                             </h2>
@@ -269,17 +403,16 @@ export default function StorekeeperReceiptsPage() {
                                                         Request #{request.id}
                                                     </h3>
                                                     <p className="text-muted mt-2 text-sm">
-                                                        Requested by: {request.requestedBy}
+                                                        {formatDate(request.createdAt)}
                                                     </p>
-                                                    <p className="text-muted mt-1 text-sm">
-                                                        Created: {formatDate(request.createdAt)}
+                                                    <p className="mt-3 text-sm font-medium">
+                                                        {request.itemSummary || "No items"}
                                                     </p>
-                                                    <p className="text-muted mt-1 text-sm">
-                                                        Approved by: {request.approvedBy}
-                                                    </p>
-                                                    <p className="text-muted mt-1 text-sm">
+                                                    <p className="text-muted mt-2 text-sm">
                                                         {request.itemCount}{" "}
-                                                        {request.itemCount === 1 ? "item" : "items"}
+                                                        {request.itemCount === 1
+                                                            ? "item total"
+                                                            : "items total"}
                                                     </p>
                                                 </div>
 
@@ -301,8 +434,14 @@ export default function StorekeeperReceiptsPage() {
                                 </div>
                             )}
                         </section>
+                        )}
 
-                        <section className="mt-12" aria-labelledby="issues-heading">
+                        {(activeTab === "issues" || activeTab === "all") && (
+                        <section
+                            id="receipt-issues"
+                            className="mt-12 scroll-mt-6"
+                            aria-labelledby="issues-heading"
+                        >
                             <h2 id="issues-heading" className="text-xl font-semibold">
                                 Receipt Issues
                             </h2>
@@ -357,8 +496,14 @@ export default function StorekeeperReceiptsPage() {
                                 </div>
                             )}
                         </section>
+                        )}
 
-                        <section className="mt-12" aria-labelledby="received-heading">
+                        {(activeTab === "received" || activeTab === "all") && (
+                        <section
+                            id="recently-received"
+                            className="mt-12 scroll-mt-6"
+                            aria-labelledby="received-heading"
+                        >
                             <h2 id="received-heading" className="text-xl font-semibold">
                                 Recently Received
                             </h2>
@@ -416,6 +561,7 @@ export default function StorekeeperReceiptsPage() {
                                 </div>
                             )}
                         </section>
+                        )}
                     </>
                 )}
             </div>
