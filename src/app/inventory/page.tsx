@@ -1,21 +1,70 @@
-import { supabase } from "@/lib/supabase";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import { supabase } from "@/lib/supabase";
 
-export default async function InventoryPage() {
-    const { data: items, error } = await supabase
-        .from("items")
-        .select("*");
+type InventoryItem = {
+    id: number;
+    name: string;
+    category: string;
+    current_quantity: number | string;
+    unit: string;
+};
 
-    if (error) {
-        console.error("Error fetching items:", error);
+export default function InventoryPage() {
+    const router = useRouter();
+    const [items, setItems] = useState<InventoryItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadInventory() {
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                router.replace("/login");
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from("items")
+                .select("id, name, category, current_quantity, unit")
+                .order("name");
+
+            if (ignore) {
+                return;
+            }
+
+            if (error) {
+                console.error("Error fetching items:", error);
+                setErrorMessage("Could not load inventory items.");
+            } else {
+                setItems((data ?? []) as InventoryItem[]);
+            }
+
+            setLoading(false);
+        }
+
+        loadInventory();
+
+        return () => {
+            ignore = true;
+        };
+    }, [router]);
+
+    if (loading) {
         return (
             <main className="app-page">
                 <div className="mx-auto max-w-7xl">
                     <AppHeader />
-
-                    <p className="error-message">
-                        Could not load inventory items.
-                    </p>
+                    <p className="text-muted">Loading inventory...</p>
                 </div>
             </main>
         );
@@ -33,6 +82,12 @@ export default async function InventoryPage() {
                 <p className="page-description mb-8">
                     Current hotel stock
                 </p>
+
+                {errorMessage && (
+                    <p className="error-message mb-6" role="alert">
+                        {errorMessage}
+                    </p>
+                )}
 
                 <div className="surface-card overflow-x-auto">
                     <table className="w-full min-w-150 text-[var(--foreground)]">
@@ -57,7 +112,7 @@ export default async function InventoryPage() {
                         </thead>
 
                         <tbody>
-                            {items?.map((item) => (
+                            {items.map((item) => (
                                 <tr
                                     key={item.id}
                                     className="data-row"

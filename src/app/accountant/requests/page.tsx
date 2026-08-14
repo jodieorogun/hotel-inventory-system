@@ -34,7 +34,7 @@ type RequestRow = {
     requested_by: string;
     accountant_approved_by: string | null;
     accountant_approved_at: string | null;
-    owner_escalated_at: string | null;
+    accountant_decision: "approved" | "rejected" | null;
 };
 
 type RequestLineRow = {
@@ -140,7 +140,7 @@ export default function AccountantRequestsPage() {
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, owner_escalated_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, accountant_decision"
                 )
                 .or(
                     `status.eq.pending_accountant,accountant_approved_by.eq.${user.id}`
@@ -213,10 +213,7 @@ export default function AccountantRequestsPage() {
                 decision:
                     request.status === "pending_accountant"
                         ? ("pending" as const)
-                        : request.status === "rejected" ||
-                            request.owner_escalated_at
-                          ? ("rejected" as const)
-                          : ("approved" as const),
+                        : request.accountant_decision ?? ("approved" as const),
                 requestedBy:
                     usersById.get(request.requested_by) ?? "Procurement user",
                 lines: lineRows

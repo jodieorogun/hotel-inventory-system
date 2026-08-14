@@ -352,58 +352,29 @@ export default function ProcurementRequestsPage() {
             return;
         }
 
-        setSavingRequest(true);
-        setErrorMessage("");
+        const selectedItemIds = editLines.map((line) => line.itemId);
 
-        const lineResults = await Promise.all(
-            editLines.map((line) =>
-                supabase
-                    .from("purchase_requests_items")
-                    .update({
-                        item_id: line.itemId,
-                        quantity: line.quantity,
-                        unit_price: line.unitPrice,
-                    })
-                    .eq("id", line.id)
-                    .eq("request_id", editingRequest.id)
-                    .select("id")
-                    .maybeSingle()
-            )
-        );
-        const failedLineResult = lineResults.find(
-            (result) => result.error || !result.data
-        );
-
-        if (failedLineResult) {
-            console.error(
-                "Error modifying purchase request items:",
-                failedLineResult.error
+        if (new Set(selectedItemIds).size !== selectedItemIds.length) {
+            setErrorMessage(
+                "Each inventory item can only appear once in a purchase request."
             );
-            setErrorMessage("Could not save the modified request items.");
-            setSavingRequest(false);
             return;
         }
 
-        const { data: resubmittedRequest, error } = await supabase
-            .from("purchase_requests")
-            .update({
-                status: "pending_accountant",
-                rejection_reason: null,
-                accountant_approved_by: null,
-                accountant_approved_at: null,
-                owner_escalated_by: null,
-                owner_escalated_at: null,
-                owner_reviewed_by: null,
-                owner_reviewed_at: null,
-                owner_decision: null,
-                owner_rejection_reason: null,
-            })
-            .eq("id", editingRequest.id)
-            .eq("status", "rejected")
-            .select("id")
-            .maybeSingle();
+        setSavingRequest(true);
+        setErrorMessage("");
 
-        if (error || !resubmittedRequest) {
+        const { error } = await supabase.rpc("resubmit_purchase_request", {
+            target_request_id: editingRequest.id,
+            updated_items: editLines.map((line) => ({
+                request_item_id: line.id,
+                item_id: line.itemId,
+                quantity: line.quantity,
+                unit_price: line.unitPrice,
+            })),
+        });
+
+        if (error) {
             console.error("Error resubmitting purchase request:", error);
             setErrorMessage("Could not resubmit the modified request.");
             setSavingRequest(false);

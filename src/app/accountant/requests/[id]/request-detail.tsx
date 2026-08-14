@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
-import RequestHistory from "@/components/request-history";
+import RequestHistory, {
+    type RequestHistoryEntry,
+} from "@/components/request-history";
+import { loadRequestHistory } from "@/lib/request-history";
 import { supabase } from "@/lib/supabase";
 
 type RequestStatus = "approved" | "rejected";
@@ -146,7 +149,13 @@ function formatStatus(status: string) {
     };
 }
 
-export default function RequestDetail({ requestId }: { requestId: string }) {
+export default function RequestDetail({
+    requestId,
+    verifiedViewerRole,
+}: {
+    requestId: string;
+    verifiedViewerRole?: "owner";
+}) {
     const router = useRouter();
     const [request, setRequest] = useState<PurchaseRequest | null>(null);
     const [loading, setLoading] = useState(true);
@@ -162,6 +171,9 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
     const [ownerAction, setOwnerAction] = useState<
         "approve" | "resubmit" | "void" | null
     >(null);
+    const [historyEntries, setHistoryEntries] = useState<
+        RequestHistoryEntry[]
+    >([]);
 
     useEffect(() => {
         let ignore = false;
@@ -173,40 +185,44 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
-            const {
-                data: { user },
-                error: userError,
-            } = await supabase.auth.getUser();
+            if (verifiedViewerRole) {
+                setViewerRole(verifiedViewerRole);
+            } else {
+                const {
+                    data: { user },
+                    error: userError,
+                } = await supabase.auth.getUser();
 
-            if (userError || !user) {
-                router.replace("/login");
-                return;
-            }
-
-            const { data: profile, error: profileError } = await supabase
-                .from("users")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-
-            if (profileError) {
-                console.error("Error checking accountant role:", profileError);
-
-                if (!ignore) {
-                    setErrorMessage("Could not verify your account permissions.");
-                    setLoading(false);
+                if (userError || !user) {
+                    router.replace("/login");
+                    return;
                 }
 
-                return;
-            }
+                const { data: profile, error: profileError } = await supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single();
 
-            if (!["accountant", "owner"].includes(profile.role)) {
-                router.replace("/dashboard");
-                return;
-            }
+                if (profileError) {
+                    console.error("Error checking accountant role:", profileError);
 
-            if (!ignore) {
-                setViewerRole(profile.role);
+                    if (!ignore) {
+                        setErrorMessage("Could not verify your account permissions.");
+                        setLoading(false);
+                    }
+
+                    return;
+                }
+
+                if (!["accountant", "owner"].includes(profile.role)) {
+                    router.replace("/dashboard");
+                    return;
+                }
+
+                if (!ignore) {
+                    setViewerRole(profile.role);
+                }
             }
 
             const { data: requestData, error: requestError } = await supabase
@@ -358,10 +374,12 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                     };
                 }),
             };
+            const durableHistory = await loadRequestHistory(requestRow.id);
 
             if (!ignore) {
                 setAvailableItems(itemRows);
                 setRequest(formattedRequest);
+                setHistoryEntries(durableHistory);
                 setLoading(false);
             }
         }
@@ -371,7 +389,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         return () => {
             ignore = true;
         };
-    }, [requestId, router]);
+    }, [requestId, router, verifiedViewerRole]);
 
     async function updateRequestStatus(
         status: RequestStatus,
@@ -424,6 +442,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             : {
                   accountant_approved_by: user.id,
                   accountant_approved_at: new Date().toISOString(),
+                  accountant_decision: status,
               };
         const currentStatus = request.status;
         const { data, error } = await supabase
@@ -531,6 +550,15 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         ) {
             setErrorMessage(
                 "Every item needs a quantity above zero and a valid unit price."
+            );
+            return;
+        }
+
+        const selectedItemIds = ownerEditLines.map((line) => line.itemId);
+
+        if (new Set(selectedItemIds).size !== selectedItemIds.length) {
+            setErrorMessage(
+                "Each inventory item can only appear once in a purchase request."
             );
             return;
         }
@@ -709,7 +737,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 )}
 
                 <RequestHistory
-                    entries={[
+                    entries={historyEntries.length > 0 ? historyEntries : [
                         {
                             action: "Requested",
                             person: request.requestedBy,

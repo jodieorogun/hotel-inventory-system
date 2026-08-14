@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
-import RequestHistory from "@/components/request-history";
+import RequestHistory, {
+    type RequestHistoryEntry,
+} from "@/components/request-history";
+import { loadRequestHistory } from "@/lib/request-history";
 import { supabase } from "@/lib/supabase";
 
 type ReceiptRequest = {
@@ -92,7 +95,13 @@ function formatDateTime(value: string) {
     }).format(new Date(value));
 }
 
-export default function ReceiptDetail({ requestId }: { requestId: string }) {
+export default function ReceiptDetail({
+    requestId,
+    verifiedViewerRole,
+}: {
+    requestId: string;
+    verifiedViewerRole?: "owner";
+}) {
     const router = useRouter();
     const [request, setRequest] = useState<ReceiptRequest | null>(null);
     const [loading, setLoading] = useState(true);
@@ -105,6 +114,9 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
         "return" | "accept" | "void" | null
     >(null);
     const [errorMessage, setErrorMessage] = useState("");
+    const [historyEntries, setHistoryEntries] = useState<
+        RequestHistoryEntry[]
+    >([]);
 
     useEffect(() => {
         let ignore = false;
@@ -116,40 +128,44 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
-            const {
-                data: { user },
-                error: userError,
-            } = await supabase.auth.getUser();
+            if (verifiedViewerRole) {
+                setViewerRole(verifiedViewerRole);
+            } else {
+                const {
+                    data: { user },
+                    error: userError,
+                } = await supabase.auth.getUser();
 
-            if (userError || !user) {
-                router.replace("/login");
-                return;
-            }
-
-            const { data: profile, error: profileError } = await supabase
-                .from("users")
-                .select("role")
-                .eq("id", user.id)
-                .single();
-
-            if (profileError) {
-                console.error("Error checking storekeeper role:", profileError);
-
-                if (!ignore) {
-                    setErrorMessage("Could not verify your account permissions.");
-                    setLoading(false);
+                if (userError || !user) {
+                    router.replace("/login");
+                    return;
                 }
 
-                return;
-            }
+                const { data: profile, error: profileError } = await supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single();
 
-            if (!["storekeeper", "owner"].includes(profile.role)) {
-                router.replace("/dashboard");
-                return;
-            }
+                if (profileError) {
+                    console.error("Error checking storekeeper role:", profileError);
 
-            if (!ignore) {
-                setViewerRole(profile.role);
+                    if (!ignore) {
+                        setErrorMessage("Could not verify your account permissions.");
+                        setLoading(false);
+                    }
+
+                    return;
+                }
+
+                if (!["storekeeper", "owner"].includes(profile.role)) {
+                    router.replace("/dashboard");
+                    return;
+                }
+
+                if (!ignore) {
+                    setViewerRole(profile.role);
+                }
             }
 
             const { data: requestData, error: requestError } = await supabase
@@ -313,9 +329,11 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     };
                 }),
             };
+            const durableHistory = await loadRequestHistory(requestRow.id);
 
             if (!ignore) {
                 setRequest(formattedRequest);
+                setHistoryEntries(durableHistory);
                 setReceivedQuantities(
                     Object.fromEntries(
                         formattedRequest.lines.map((line) => [
@@ -335,7 +353,7 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
         return () => {
             ignore = true;
         };
-    }, [requestId, router]);
+    }, [requestId, router, verifiedViewerRole]);
 
     async function confirmReceipt() {
         if (
@@ -638,7 +656,7 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 </dl>
 
                 <RequestHistory
-                    entries={[
+                    entries={historyEntries.length > 0 ? historyEntries : [
                         {
                             action: "Requested",
                             person: request.requestedBy,

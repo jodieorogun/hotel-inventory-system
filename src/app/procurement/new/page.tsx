@@ -45,11 +45,47 @@ export default function NewProcurementRequestPage() {
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
+        let ignore = false;
+
         async function loadItems() {
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (userError || !user) {
+                router.replace("/login");
+                return;
+            }
+
+            const { data: profile, error: profileError } = await supabase
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .single();
+
+            if (profileError) {
+                console.error("Error checking procurement role:", profileError);
+                if (!ignore) {
+                    setErrorMessage("Could not verify your account permissions.");
+                    setLoading(false);
+                }
+                return;
+            }
+
+            if (!["procurement", "owner"].includes(profile.role)) {
+                router.replace("/dashboard");
+                return;
+            }
+
             const { data, error } = await supabase
                 .from("items")
                 .select("id, name, unit")
                 .order("name");
+
+            if (ignore) {
+                return;
+            }
 
             if (error) {
                 console.error("Error loading items:", error);
@@ -63,7 +99,11 @@ export default function NewProcurementRequestPage() {
         }
 
         loadItems();
-    }, []);
+
+        return () => {
+            ignore = true;
+        };
+    }, [router]);
 
     function updateRequestLine(
         index: number,
@@ -203,6 +243,17 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
+        const selectedItemIds = requestLines.map((line) => line.itemId);
+        const hasDuplicateItem =
+            new Set(selectedItemIds).size !== selectedItemIds.length;
+
+        if (hasDuplicateItem) {
+            setErrorMessage(
+                "Each inventory item can only appear once in a purchase request."
+            );
+            return;
+        }
+
         const hasEmptyFields = requestLines.some(
             (line) => !line.quantity || !line.unitPrice
         );
@@ -238,22 +289,17 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
-        const { data: request, error: requestError } =
-            await supabase
-                .from("purchase_requests")
-                .insert({
-                    requested_by: user.id,
-                    status: "pending_accountant",
-                    accountant_approved_by: null,
-                    accountant_approved_at: null,
-                    storekeeper_verified_by: null,
-                    storekeeper_verified_at: null,
-                    rejection_reason: null,
-                })
-                .select("id")
-                .single();
+        const requestItems = requestLines.map((line) => ({
+            item_id: Number(line.itemId),
+            quantity: Number(line.quantity),
+            unit_price: Number(line.unitPrice),
+        }));
+        const { data: requestId, error: requestError } = await supabase.rpc(
+            "create_purchase_request",
+            { request_items: requestItems }
+        );
 
-        if (requestError || !request) {
+        if (requestError || requestId === null) {
             console.error(
                 "Error creating procurement request:",
                 requestError
@@ -261,31 +307,6 @@ export default function NewProcurementRequestPage() {
 
             setErrorMessage(
                 "Could not create the purchase request."
-            );
-
-            setSubmitting(false);
-            return;
-        }
-
-        const requestItems = requestLines.map((line) => ({
-            request_id: request.id,
-            item_id: Number(line.itemId),
-            quantity: Number(line.quantity),
-            unit_price: Number(line.unitPrice),
-        }));
-
-        const { error: itemsError } = await supabase
-            .from("purchase_requests_items")
-            .insert(requestItems);
-
-        if (itemsError) {
-            console.error(
-                "Error adding procurement request items:",
-                itemsError
-            );
-
-            setErrorMessage(
-                "The request was created, but the items could not be added."
             );
 
             setSubmitting(false);

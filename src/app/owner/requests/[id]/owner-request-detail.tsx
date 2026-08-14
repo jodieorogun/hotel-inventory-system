@@ -135,8 +135,8 @@ export default function OwnerRequestDetail({
         request.status
     );
     return isReceiptStage ? (
-        <ReceiptDetail requestId={requestId} />
+        <ReceiptDetail requestId={requestId} verifiedViewerRole="owner" />
     ) : (
-        <PurchaseRequestDetail requestId={requestId} />
+        <PurchaseRequestDetail requestId={requestId} verifiedViewerRole="owner" />
     );
 }

@@ -15,7 +15,7 @@ type RequestSummary = {
     status: string;
     requested_by: string;
     accountant_approved_by: string | null;
-    owner_escalated_at: string | null;
+    accountant_decision: "approved" | "rejected" | null;
     receipt_issue_reason: string | null;
     receipt_issue_resolved_at: string | null;
 };
@@ -80,7 +80,7 @@ export default function DashboardPage() {
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "status, requested_by, accountant_approved_by, owner_escalated_at, receipt_issue_reason, receipt_issue_resolved_at"
+                    "status, requested_by, accountant_approved_by, accountant_decision, receipt_issue_reason, receipt_issue_resolved_at"
                 );
 
             if (requestsError) {
@@ -118,14 +118,12 @@ export default function DashboardPage() {
                     accountantApproved: accountantRequests.filter(
                         (request) =>
                             request.status !== "pending_accountant" &&
-                            request.status !== "rejected" &&
-                            !request.owner_escalated_at
+                            request.accountant_decision === "approved"
                     ).length,
                     accountantRejected: accountantRequests.filter(
                         (request) =>
                             request.status !== "pending_accountant" &&
-                            (request.status === "rejected" ||
-                                Boolean(request.owner_escalated_at))
+                            request.accountant_decision === "rejected"
                     ).length,
                     accountantAll: accountantRequests.length,
                     awaitingReceipt: requests.filter(
