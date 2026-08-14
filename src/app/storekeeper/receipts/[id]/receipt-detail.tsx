@@ -45,7 +45,9 @@ type ReceiptLine = {
     id: number;
     itemName: string;
     quantity: number;
-    receivedQuantity: number | null;
+    receivedFullPurchaseUnits: number | null;
+    receivedLooseUnits: number | null;
+    receivedStockQuantity: number | null;
     unit: string;
     purchaseUnit: string;
     unitsPerPurchaseUnit: number;
@@ -79,6 +81,9 @@ type RequestItemRow = {
     item_id: number;
     quantity: number | string;
     received_quantity: number | string | null;
+    received_full_purchase_units: number | string | null;
+    received_loose_units: number | string | null;
+    received_stock_quantity: number | string | null;
     purchase_unit: string;
     units_per_purchase_unit: number | string;
 };
@@ -117,7 +122,10 @@ export default function ReceiptDetail({
     const [request, setRequest] = useState<ReceiptRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
-    const [receivedQuantities, setReceivedQuantities] = useState<
+    const [receivedFullQuantities, setReceivedFullQuantities] = useState<
+        Record<number, string>
+    >({});
+    const [receivedLooseQuantities, setReceivedLooseQuantities] = useState<
         Record<number, string>
     >({});
     const [viewerRole, setViewerRole] = useState("");
@@ -223,7 +231,7 @@ export default function ReceiptDetail({
             const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("id, item_id, quantity, received_quantity, purchase_unit, units_per_purchase_unit")
+                    .select("id, item_id, quantity, received_quantity, purchase_unit, units_per_purchase_unit, received_full_purchase_units, received_loose_units, received_stock_quantity")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
                 supabase.from("users").select("id, name").in("id", userIds),
@@ -332,10 +340,18 @@ export default function ReceiptDetail({
                         id: line.id,
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
-                        receivedQuantity:
-                            line.received_quantity === null
+                        receivedFullPurchaseUnits:
+                            line.received_full_purchase_units === null
                                 ? null
-                                : Number(line.received_quantity),
+                                : Number(line.received_full_purchase_units),
+                        receivedLooseUnits:
+                            line.received_loose_units === null
+                                ? null
+                                : Number(line.received_loose_units),
+                        receivedStockQuantity:
+                            line.received_stock_quantity === null
+                                ? null
+                                : Number(line.received_stock_quantity),
                         unit: item?.unit ?? "",
                         purchaseUnit:
                             line.purchase_unit ?? item?.purchase_unit ?? item?.unit ?? "",
@@ -352,13 +368,23 @@ export default function ReceiptDetail({
             if (!ignore) {
                 setRequest(formattedRequest);
                 setHistoryEntries(durableHistory);
-                setReceivedQuantities(
+                setReceivedFullQuantities(
                     Object.fromEntries(
                         formattedRequest.lines.map((line) => [
                             line.id,
-                            line.receivedQuantity === null
+                            line.receivedFullPurchaseUnits === null
                                 ? ""
-                                : String(line.receivedQuantity),
+                                : String(line.receivedFullPurchaseUnits),
+                        ])
+                    )
+                );
+                setReceivedLooseQuantities(
+                    Object.fromEntries(
+                        formattedRequest.lines.map((line) => [
+                            line.id,
+                            line.receivedLooseUnits === null
+                                ? ""
+                                : String(line.receivedLooseUnits),
                         ])
                     )
                 );
@@ -382,28 +408,71 @@ export default function ReceiptDetail({
             return;
         }
 
-        const receivedItems = request.lines.map((line) => ({
-            request_item_id: line.id,
-            actual_quantity: Number(receivedQuantities[line.id]),
-        }));
+        const receivedItems = request.lines.map((line) => {
+            const usesPackaging = hasPurchaseConversion(
+                line.unit,
+                line.purchaseUnit,
+                line.unitsPerPurchaseUnit
+            );
+
+            return {
+                request_item_id: line.id,
+                full_purchase_units: usesPackaging
+                    ? Number(receivedFullQuantities[line.id])
+                    : 0,
+                loose_units: Number(receivedLooseQuantities[line.id]),
+            };
+        });
 
         if (
-            receivedItems.some(
-                (line) =>
-                    receivedQuantities[line.request_item_id]?.trim() === "" ||
-                    !Number.isFinite(line.actual_quantity) ||
-                    line.actual_quantity < 0
-            )
+            receivedItems.some((receivedLine) => {
+                const requestLine = request.lines.find(
+                    (line) => line.id === receivedLine.request_item_id
+                );
+                const usesPackaging = requestLine
+                    ? hasPurchaseConversion(
+                          requestLine.unit,
+                          requestLine.purchaseUnit,
+                          requestLine.unitsPerPurchaseUnit
+                      )
+                    : false;
+
+                return (
+                    !requestLine ||
+                    (usesPackaging &&
+                        receivedFullQuantities[receivedLine.request_item_id]?.trim() === "") ||
+                    receivedLooseQuantities[receivedLine.request_item_id]?.trim() === "" ||
+                    !Number.isInteger(receivedLine.full_purchase_units) ||
+                    !Number.isInteger(receivedLine.loose_units) ||
+                    receivedLine.full_purchase_units < 0 ||
+                    receivedLine.loose_units < 0 ||
+                    (usesPackaging &&
+                        receivedLine.loose_units >=
+                            requestLine.unitsPerPurchaseUnit)
+                );
+            })
         ) {
             setErrorMessage(
-                "Enter the actual quantity received for every item. Use 0 if none arrived."
+                "Enter the full packs and loose units received for every item. Use 0 if none arrived."
             );
             return;
         }
 
-        const hasMismatch = request.lines.some(
-            (line) => Number(receivedQuantities[line.id]) !== line.quantity
-        );
+        const hasMismatch = request.lines.some((line) => {
+            const receivedLine = receivedItems.find(
+                (item) => item.request_item_id === line.id
+            );
+            const receivedStock = receivedLine
+                ? receivedLine.full_purchase_units *
+                      line.unitsPerPurchaseUnit +
+                  receivedLine.loose_units
+                : 0;
+
+            return (
+                receivedStock !==
+                stockEquivalent(line.quantity, line.unitsPerPurchaseUnit)
+            );
+        });
         const confirmed = window.confirm(
             hasMismatch
                 ? `Submit received quantities for Purchase Request #${request.id}?\n\nOne or more quantities do not match. The request will be flagged as a Receipt Issue and no stock will be added.`
@@ -771,10 +840,10 @@ export default function ReceiptDetail({
                 />
 
                 <div className="surface-card mt-8 overflow-hidden">
-                    <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
+                    <div className="hidden grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
                         <span>Item</span>
-                        <span className="w-44">Ordered</span>
-                        <span className="w-40">Actual Received</span>
+                        <span>Expected</span>
+                        <span>Actual Received</span>
                     </div>
 
                     {request.lines.length === 0 ? (
@@ -782,112 +851,211 @@ export default function ReceiptDetail({
                             No items were found for this request.
                         </p>
                     ) : (
-                        request.lines.map((line) => (
-                            <div
-                                key={line.id}
-                                className="grid gap-3 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6"
-                            >
-                                <div>
-                                    <p className="font-medium">{line.itemName}</p>
-                                    <p className="text-muted mt-1 text-sm sm:hidden">
-                                        Ordered: {formatQuantity(
-                                            line.quantity,
-                                            line.purchaseUnit
-                                        )}
-                                    </p>
-                                    {hasPurchaseConversion(
-                                        line.unit,
-                                        line.purchaseUnit,
-                                        line.unitsPerPurchaseUnit
-                                    ) && (
+                        request.lines.map((line) => {
+                            const usesPackaging = hasPurchaseConversion(
+                                line.unit,
+                                line.purchaseUnit,
+                                line.unitsPerPurchaseUnit
+                            );
+                            const expectedStock = stockEquivalent(
+                                line.quantity,
+                                line.unitsPerPurchaseUnit
+                            );
+                            const fullInput = receivedFullQuantities[line.id] ?? "";
+                            const looseInput = receivedLooseQuantities[line.id] ?? "";
+                            const draftIsComplete =
+                                looseInput.trim() !== "" &&
+                                (!usesPackaging || fullInput.trim() !== "");
+                            const draftReceivedStock = draftIsComplete
+                                ? Number(fullInput || 0) *
+                                      line.unitsPerPurchaseUnit +
+                                  Number(looseInput)
+                                : null;
+                            const receivedStock =
+                                request.status === "approved"
+                                    ? draftReceivedStock
+                                    : line.receivedStockQuantity;
+                            const difference =
+                                receivedStock === null
+                                    ? null
+                                    : receivedStock - expectedStock;
+
+                            return (
+                                <div
+                                    key={line.id}
+                                    className="grid gap-4 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)] sm:items-start sm:gap-6"
+                                >
+                                    <div>
+                                        <p className="font-medium">{line.itemName}</p>
                                         <p className="text-muted mt-1 text-sm">
-                                            Equivalent stock: {formatQuantity(
-                                                stockEquivalent(
-                                                    line.quantity,
-                                                    line.unitsPerPurchaseUnit
-                                                ),
-                                                line.unit
+                                            Ordered: {formatQuantity(
+                                                line.quantity,
+                                                line.purchaseUnit
                                             )}
                                         </p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-muted text-xs font-semibold uppercase tracking-wide sm:hidden">
+                                            Expected
+                                        </p>
+                                        <p className="mt-1 font-medium sm:mt-0">
+                                            {formatQuantity(expectedStock, line.unit)}
+                                        </p>
+                                        {usesPackaging && (
+                                            <p className="text-muted mt-1 text-xs">
+                                                {formatQuantity(
+                                                    line.quantity,
+                                                    line.purchaseUnit
+                                                )} × {formatQuantity(
+                                                    line.unitsPerPurchaseUnit,
+                                                    line.unit
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {request.status === "approved" ? (
+                                        <div>
+                                            {usesPackaging ? (
+                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                    <div>
+                                                        <label
+                                                            htmlFor={`full-${line.id}`}
+                                                            className="form-label"
+                                                        >
+                                                            Full {line.purchaseUnit} received
+                                                        </label>
+                                                        <input
+                                                            id={`full-${line.id}`}
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            value={fullInput}
+                                                            onChange={(event) =>
+                                                                setReceivedFullQuantities(
+                                                                    (quantities) => ({
+                                                                        ...quantities,
+                                                                        [line.id]: event.target.value,
+                                                                    })
+                                                                )
+                                                            }
+                                                            disabled={confirming}
+                                                            className="form-control"
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            htmlFor={`loose-${line.id}`}
+                                                            className="form-label"
+                                                        >
+                                                            Loose {line.unit} received
+                                                        </label>
+                                                        <input
+                                                            id={`loose-${line.id}`}
+                                                            type="number"
+                                                            min="0"
+                                                            max={line.unitsPerPurchaseUnit - 1}
+                                                            step="1"
+                                                            value={looseInput}
+                                                            onChange={(event) =>
+                                                                setReceivedLooseQuantities(
+                                                                    (quantities) => ({
+                                                                        ...quantities,
+                                                                        [line.id]: event.target.value,
+                                                                    })
+                                                                )
+                                                            }
+                                                            disabled={confirming}
+                                                            className="form-control"
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <label
+                                                        htmlFor={`loose-${line.id}`}
+                                                        className="form-label"
+                                                    >
+                                                        {line.unit} received
+                                                    </label>
+                                                    <input
+                                                        id={`loose-${line.id}`}
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        value={looseInput}
+                                                        onChange={(event) =>
+                                                            setReceivedLooseQuantities(
+                                                                (quantities) => ({
+                                                                    ...quantities,
+                                                                    [line.id]: event.target.value,
+                                                                })
+                                                            )
+                                                        }
+                                                        disabled={confirming}
+                                                        className="form-control"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {receivedStock !== null && (
+                                                <div className="mt-3 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 text-sm">
+                                                    <p>
+                                                        Received: <span className="font-semibold">
+                                                            {formatQuantity(receivedStock, line.unit)}
+                                                        </span>
+                                                    </p>
+                                                    <p className={difference === 0 ? "text-muted mt-1" : "mt-1 text-[var(--danger)]"}>
+                                                        Difference: {difference === 0
+                                                            ? "No difference"
+                                                            : difference! < 0
+                                                              ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
+                                                              : `${formatQuantity(difference!, line.unit)} extra`}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {receivedStock === null ? (
+                                                <p className="text-muted">Not recorded</p>
+                                            ) : (
+                                                <>
+                                                    {usesPackaging && (
+                                                        <p className="text-muted text-sm">
+                                                            {formatQuantity(
+                                                                line.receivedFullPurchaseUnits ?? 0,
+                                                                line.purchaseUnit
+                                                            )} + {formatQuantity(
+                                                                line.receivedLooseUnits ?? 0,
+                                                                line.unit
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                    <p className="mt-1 font-semibold">
+                                                        Received: {formatQuantity(
+                                                            receivedStock,
+                                                            line.unit
+                                                        )}
+                                                    </p>
+                                                    <p className={difference === 0 ? "text-muted mt-1 text-sm" : "mt-1 text-sm text-[var(--danger)]"}>
+                                                        Difference: {difference === 0
+                                                            ? "No difference"
+                                                            : difference! < 0
+                                                              ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
+                                                              : `${formatQuantity(difference!, line.unit)} extra`}
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
-                                <p className="hidden w-44 sm:block">
-                                    {formatQuantity(
-                                        line.quantity,
-                                        line.purchaseUnit
-                                    )}
-                                </p>
-                                {request.status === "approved" ? (
-                                    <div className="w-full sm:w-40">
-                                        <label
-                                            htmlFor={`received-${line.id}`}
-                                            className="form-label sm:sr-only"
-                                        >
-                                            Actual quantity received for {line.itemName}
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                id={`received-${line.id}`}
-                                                type="number"
-                                                min="0"
-                                                step="any"
-                                                value={
-                                                    receivedQuantities[line.id] ??
-                                                    ""
-                                                }
-                                                onChange={(event) =>
-                                                    setReceivedQuantities(
-                                                        (quantities) => ({
-                                                            ...quantities,
-                                                            [line.id]:
-                                                                event.target.value,
-                                                        })
-                                                    )
-                                                }
-                                                disabled={confirming}
-                                                className="form-control min-w-0"
-                                                placeholder="0"
-                                            />
-                                            <span className="text-muted text-sm">
-                                                {line.purchaseUnit}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p
-                                        className={`w-40 font-semibold ${
-                                            line.receivedQuantity !== null &&
-                                            line.receivedQuantity !== line.quantity
-                                                ? "text-[var(--danger)]"
-                                                : ""
-                                        }`}
-                                    >
-                                        {line.receivedQuantity === null
-                                            ? "Not recorded"
-                                            : formatQuantity(
-                                                  line.receivedQuantity,
-                                                  line.purchaseUnit
-                                              )}
-                                        {line.receivedQuantity !== null &&
-                                            hasPurchaseConversion(
-                                                line.unit,
-                                                line.purchaseUnit,
-                                                line.unitsPerPurchaseUnit
-                                            ) && (
-                                            <span className="text-muted mt-1 block text-xs font-normal">
-                                                {formatQuantity(
-                                                    stockEquivalent(
-                                                        line.receivedQuantity,
-                                                        line.unitsPerPurchaseUnit
-                                                    ),
-                                                    line.unit
-                                                )} stock
-                                            </span>
-                                        )}
-                                    </p>
-                                )}
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
 

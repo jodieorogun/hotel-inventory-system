@@ -43,7 +43,8 @@ Each `purchase_requests_items` row snapshots its selected `purchase_unit` and
 `units_per_purchase_unit`, so Procurement can buy either the usual packaging or
 individual stock units without later item changes altering old requests.
 Requested and received quantities remain in the selected purchase unit;
-confirmed inventory is increased in stock units.
+the Storekeeper records full purchase units plus loose stock units, and
+confirmed inventory is increased using the calculated actual stock-unit total.
 
 It also calls these database functions:
 
