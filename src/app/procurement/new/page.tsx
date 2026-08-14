@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import PurchaseUnitChoice from "@/components/purchase-unit-choice";
 import { supabase } from "@/lib/supabase";
 import {
     formatQuantity,
@@ -22,6 +23,8 @@ type RequestLine = {
     itemId: string;
     quantity: string;
     unitPrice: string;
+    purchaseUnit: string;
+    unitsPerPurchaseUnit: number;
 };
 
 type NewItemForm = {
@@ -42,6 +45,8 @@ export default function NewProcurementRequestPage() {
             itemId: "",
             quantity: "",
             unitPrice: "",
+            purchaseUnit: "",
+            unitsPerPurchaseUnit: 1,
         },
     ]);
     const [itemSearches, setItemSearches] = useState([""]);
@@ -125,7 +130,7 @@ export default function NewProcurementRequestPage() {
     function updateRequestLine(
         index: number,
         field: keyof RequestLine,
-        value: string
+        value: string | number
     ) {
         const updatedLines = [...requestLines];
 
@@ -144,6 +149,8 @@ export default function NewProcurementRequestPage() {
                 itemId: "",
                 quantity: "",
                 unitPrice: "",
+                purchaseUnit: "",
+                unitsPerPurchaseUnit: 1,
             },
         ]);
         setItemSearches([...itemSearches, ""]);
@@ -177,7 +184,14 @@ export default function NewProcurementRequestPage() {
     }
 
     function selectItem(index: number, item: Item) {
-        updateRequestLine(index, "itemId", String(item.id));
+        const updatedLines = [...requestLines];
+        updatedLines[index] = {
+            ...updatedLines[index],
+            itemId: String(item.id),
+            purchaseUnit: item.purchaseUnit,
+            unitsPerPurchaseUnit: item.unitsPerPurchaseUnit,
+        };
+        setRequestLines(updatedLines);
         setItemSearches((searches) =>
             searches.map((search, lineIndex) =>
                 lineIndex === index ? item.name : search
@@ -304,7 +318,10 @@ export default function NewProcurementRequestPage() {
         const hasInvalidNumbers = requestLines.some(
             (line) =>
                 Number(line.quantity) <= 0 ||
-                Number(line.unitPrice) < 0
+                Number(line.unitPrice) < 0 ||
+                !line.purchaseUnit.trim() ||
+                !Number.isInteger(line.unitsPerPurchaseUnit) ||
+                line.unitsPerPurchaseUnit < 1
         );
 
         if (hasInvalidNumbers) {
@@ -331,6 +348,8 @@ export default function NewProcurementRequestPage() {
             item_id: Number(line.itemId),
             quantity: Number(line.quantity),
             unit_price: Number(line.unitPrice),
+            purchase_unit: line.purchaseUnit,
+            units_per_purchase_unit: line.unitsPerPurchaseUnit,
         }));
         const { data: requestId, error: requestError } = await supabase.rpc(
             "create_purchase_request",
@@ -494,7 +513,7 @@ export default function NewProcurementRequestPage() {
                                 <div>
                                     <label className="form-label">
                                         Quantity{selectedItem
-                                            ? ` (${selectedItem.purchaseUnit})`
+                                            ? ` (${line.purchaseUnit})`
                                             : ""}
                                     </label>
 
@@ -515,8 +534,8 @@ export default function NewProcurementRequestPage() {
                                     {selectedItem &&
                                         hasPurchaseConversion(
                                             selectedItem.unit,
-                                            selectedItem.purchaseUnit,
-                                            selectedItem.unitsPerPurchaseUnit
+                                            line.purchaseUnit,
+                                            line.unitsPerPurchaseUnit
                                         ) &&
                                         line.quantity &&
                                         Number(line.quantity) > 0 && (
@@ -524,7 +543,7 @@ export default function NewProcurementRequestPage() {
                                             Equivalent stock: {formatQuantity(
                                                 stockEquivalent(
                                                     Number(line.quantity),
-                                                    selectedItem.unitsPerPurchaseUnit
+                                                    line.unitsPerPurchaseUnit
                                                 ),
                                                 selectedItem.unit
                                             )}
@@ -534,7 +553,7 @@ export default function NewProcurementRequestPage() {
 
                                 <div>
                                     <label className="form-label">
-                                        Price per {selectedItem?.purchaseUnit ?? "purchase unit"}
+                                        Price per {line.purchaseUnit || "purchase unit"}
                                     </label>
 
                                     <input
@@ -553,6 +572,32 @@ export default function NewProcurementRequestPage() {
                                     />
                                 </div>
                             </div>
+
+                            {selectedItem && (
+                                <div className="mt-4">
+                                    <PurchaseUnitChoice
+                                        id={`purchase-unit-${index}`}
+                                        unit={selectedItem.unit}
+                                        defaultPurchaseUnit={selectedItem.purchaseUnit}
+                                        defaultUnitsPerPurchaseUnit={
+                                            selectedItem.unitsPerPurchaseUnit
+                                        }
+                                        purchaseUnit={line.purchaseUnit}
+                                        unitsPerPurchaseUnit={
+                                            line.unitsPerPurchaseUnit
+                                        }
+                                        onChange={(purchaseUnit, conversion) => {
+                                            const updatedLines = [...requestLines];
+                                            updatedLines[index] = {
+                                                ...updatedLines[index],
+                                                purchaseUnit,
+                                                unitsPerPurchaseUnit: conversion,
+                                            };
+                                            setRequestLines(updatedLines);
+                                        }}
+                                    />
+                                </div>
+                            )}
 
                             {newItemForm?.lineIndex === index && (
                                 <form

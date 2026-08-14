@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import PurchaseUnitChoice from "@/components/purchase-unit-choice";
 import RequestListFilters, {
     DateFilterValue,
     matchesDateFilter,
@@ -54,6 +55,8 @@ type RequestLineRow = {
     item_id: number;
     quantity: number | string;
     unit_price: number | string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type ItemRow = {
@@ -209,7 +212,7 @@ export default function ProcurementRequestsPage() {
 
             const { data: lineData, error: linesError } = await supabase
                 .from("purchase_requests_items")
-                .select("id, request_id, item_id, quantity, unit_price")
+                .select("id, request_id, item_id, quantity, unit_price, purchase_unit, units_per_purchase_unit")
                 .in("request_id", requestIds)
                 .order("id", { ascending: true });
 
@@ -276,9 +279,15 @@ export default function ProcurementRequestsPage() {
                             itemName: item?.name ?? "Unknown item",
                             quantity: Number(line.quantity),
                             unit: item?.unit ?? "",
-                            purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                            purchaseUnit:
+                                line.purchase_unit ??
+                                item?.purchase_unit ??
+                                item?.unit ??
+                                "",
                             unitsPerPurchaseUnit: Number(
-                                item?.units_per_purchase_unit ?? 1
+                                line.units_per_purchase_unit ??
+                                    item?.units_per_purchase_unit ??
+                                    1
                             ),
                             unitPrice: Number(line.unit_price),
                         };
@@ -361,7 +370,12 @@ export default function ProcurementRequestsPage() {
         if (
             editLines.length === 0 ||
             editLines.some(
-                (line) => line.quantity <= 0 || line.unitPrice < 0
+                (line) =>
+                    line.quantity <= 0 ||
+                    line.unitPrice < 0 ||
+                    !line.purchaseUnit.trim() ||
+                    !Number.isInteger(line.unitsPerPurchaseUnit) ||
+                    line.unitsPerPurchaseUnit < 1
             )
         ) {
             setErrorMessage(
@@ -389,6 +403,8 @@ export default function ProcurementRequestsPage() {
                 item_id: line.itemId,
                 quantity: line.quantity,
                 unit_price: line.unitPrice,
+                purchase_unit: line.purchaseUnit,
+                units_per_purchase_unit: line.unitsPerPurchaseUnit,
             })),
         });
 
@@ -785,6 +801,47 @@ export default function ProcurementRequestsPage() {
                                             </option>
                                         ))}
                                     </select>
+                                    {(() => {
+                                        const selectedItem = availableItems.find(
+                                            (item) => item.id === line.itemId
+                                        );
+
+                                        return selectedItem ? (
+                                            <div className="mt-4">
+                                                <PurchaseUnitChoice
+                                                    id={`edit-purchase-unit-${line.id}`}
+                                                    unit={selectedItem.unit}
+                                                    defaultPurchaseUnit={
+                                                        selectedItem.purchase_unit
+                                                    }
+                                                    defaultUnitsPerPurchaseUnit={Number(
+                                                        selectedItem.units_per_purchase_unit
+                                                    )}
+                                                    purchaseUnit={line.purchaseUnit}
+                                                    unitsPerPurchaseUnit={
+                                                        line.unitsPerPurchaseUnit
+                                                    }
+                                                    onChange={(
+                                                        purchaseUnit,
+                                                        conversion
+                                                    ) =>
+                                                        setEditLines((lines) =>
+                                                            lines.map((editLine) =>
+                                                                editLine.id === line.id
+                                                                    ? {
+                                                                          ...editLine,
+                                                                          purchaseUnit,
+                                                                          unitsPerPurchaseUnit:
+                                                                              conversion,
+                                                                      }
+                                                                    : editLine
+                                                            )
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                         <div>
                                             <label

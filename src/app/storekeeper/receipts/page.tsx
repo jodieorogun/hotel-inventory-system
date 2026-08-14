@@ -47,6 +47,7 @@ type RequestItemRow = {
     request_id: number;
     item_id: number;
     quantity: number | string;
+    purchase_unit: string;
 };
 
 type UserRow = {
@@ -174,7 +175,7 @@ export default function StorekeeperReceiptsPage() {
             const [itemsResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("request_id, item_id, quantity")
+                    .select("request_id, item_id, quantity, purchase_unit")
                     .in("request_id", requestIds),
                 supabase
                     .from("users")
@@ -240,7 +241,7 @@ export default function StorekeeperReceiptsPage() {
 
                         return `${inventoryItem?.name ?? "Unknown item"} · ${formatQuantity(
                             Number(item.quantity),
-                            inventoryItem?.purchase_unit ?? ""
+                            item.purchase_unit ?? inventoryItem?.purchase_unit ?? ""
                         )}`;
                     }
                 );

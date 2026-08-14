@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import PurchaseUnitChoice from "@/components/purchase-unit-choice";
 import RequestHistory, {
     type RequestHistoryEntry,
 } from "@/components/request-history";
@@ -84,6 +85,8 @@ type RequestLineRow = {
     item_id: number;
     quantity: number | string;
     unit_price: number | string;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type ItemRow = {
@@ -276,7 +279,7 @@ export default function RequestDetail({
             const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("id, item_id, quantity, unit_price")
+                    .select("id, item_id, quantity, unit_price, purchase_unit, units_per_purchase_unit")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
                 supabase
@@ -379,9 +382,15 @@ export default function RequestDetail({
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
                         unit: item?.unit ?? "",
-                        purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                        purchaseUnit:
+                            line.purchase_unit ??
+                            item?.purchase_unit ??
+                            item?.unit ??
+                            "",
                         unitsPerPurchaseUnit: Number(
-                            item?.units_per_purchase_unit ?? 1
+                            line.units_per_purchase_unit ??
+                                item?.units_per_purchase_unit ??
+                                1
                         ),
                         unitPrice: Number(line.unit_price),
                     };
@@ -562,7 +571,12 @@ export default function RequestDetail({
         if (
             ownerEditLines.length === 0 ||
             ownerEditLines.some(
-                (line) => line.quantity <= 0 || line.unitPrice < 0
+                (line) =>
+                    line.quantity <= 0 ||
+                    line.unitPrice < 0 ||
+                    !line.purchaseUnit.trim() ||
+                    !Number.isInteger(line.unitsPerPurchaseUnit) ||
+                    line.unitsPerPurchaseUnit < 1
             )
         ) {
             setErrorMessage(
@@ -590,6 +604,8 @@ export default function RequestDetail({
                 item_id: line.itemId,
                 quantity: line.quantity,
                 unit_price: line.unitPrice,
+                purchase_unit: line.purchaseUnit,
+                units_per_purchase_unit: line.unitsPerPurchaseUnit,
             })),
         });
 
@@ -1059,6 +1075,51 @@ export default function RequestDetail({
                                             </option>
                                         ))}
                                     </select>
+
+                                    {(() => {
+                                        const selectedItem = availableItems.find(
+                                            (item) => item.id === line.itemId
+                                        );
+
+                                        return selectedItem ? (
+                                            <div className="mt-4">
+                                                <PurchaseUnitChoice
+                                                    id={`owner-purchase-unit-${line.id}`}
+                                                    unit={selectedItem.unit}
+                                                    defaultPurchaseUnit={
+                                                        selectedItem.purchase_unit
+                                                    }
+                                                    defaultUnitsPerPurchaseUnit={Number(
+                                                        selectedItem.units_per_purchase_unit
+                                                    )}
+                                                    purchaseUnit={line.purchaseUnit}
+                                                    unitsPerPurchaseUnit={
+                                                        line.unitsPerPurchaseUnit
+                                                    }
+                                                    onChange={(
+                                                        purchaseUnit,
+                                                        conversion
+                                                    ) =>
+                                                        setOwnerEditLines((lines) =>
+                                                            lines.map((editLine) =>
+                                                                editLine.id === line.id
+                                                                    ? {
+                                                                          ...editLine,
+                                                                          purchaseUnit,
+                                                                          unitsPerPurchaseUnit:
+                                                                              conversion,
+                                                                      }
+                                                                    : editLine
+                                                            )
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        ownerAction === "resubmit"
+                                                    }
+                                                />
+                                            </div>
+                                        ) : null;
+                                    })()}
 
                                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                         <div>

@@ -39,8 +39,11 @@ The frontend expects these main tables:
 
 Each `items` row uses `unit` as the stock unit, `purchase_unit` as the unit
 Procurement orders, and `units_per_purchase_unit` as the receipt conversion.
-Requested and received quantities remain in purchase units; confirmed inventory
-is increased in stock units.
+Each `purchase_requests_items` row snapshots its selected `purchase_unit` and
+`units_per_purchase_unit`, so Procurement can buy either the usual packaging or
+individual stock units without later item changes altering old requests.
+Requested and received quantities remain in the selected purchase unit;
+confirmed inventory is increased in stock units.
 
 It also calls these database functions:
 

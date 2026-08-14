@@ -79,6 +79,8 @@ type RequestItemRow = {
     item_id: number;
     quantity: number | string;
     received_quantity: number | string | null;
+    purchase_unit: string;
+    units_per_purchase_unit: number | string;
 };
 
 type ItemRow = {
@@ -221,7 +223,7 @@ export default function ReceiptDetail({
             const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("id, item_id, quantity, received_quantity")
+                    .select("id, item_id, quantity, received_quantity, purchase_unit, units_per_purchase_unit")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
                 supabase.from("users").select("id, name").in("id", userIds),
@@ -335,9 +337,12 @@ export default function ReceiptDetail({
                                 ? null
                                 : Number(line.received_quantity),
                         unit: item?.unit ?? "",
-                        purchaseUnit: item?.purchase_unit ?? item?.unit ?? "",
+                        purchaseUnit:
+                            line.purchase_unit ?? item?.purchase_unit ?? item?.unit ?? "",
                         unitsPerPurchaseUnit: Number(
-                            item?.units_per_purchase_unit ?? 1
+                            line.units_per_purchase_unit ??
+                                item?.units_per_purchase_unit ??
+                                1
                         ),
                     };
                 }),
