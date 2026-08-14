@@ -53,6 +53,11 @@ const statusDetails: Record<
         className:
             "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
     },
+    escalated_owner: {
+        label: "Escalated to Owner",
+        className:
+            "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300",
+    },
     receipt_issue: {
         label: "Receipt Issue",
         className:
@@ -175,7 +180,11 @@ export type OwnerWorkflowView =
     | "awaiting-receipt"
     | "recently-completed";
 
-export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
+export default function OwnerWorkflow({
+    view,
+}: {
+    view: OwnerWorkflowView;
+}) {
     const router = useRouter();
     const [requests, setRequests] = useState<OwnerRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -312,7 +321,7 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                 <div className="mx-auto max-w-7xl">
                     <AppHeader />
                     <p className="text-muted">
-                        Loading owner {view ? "requests" : "overview"}...
+                        Loading owner requests...
                     </p>
                 </div>
             </main>
@@ -320,7 +329,9 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
     }
 
     const needsAttention = requests.filter((request) =>
-        ["rejected", "receipt_issue", "cancelled"].includes(request.status)
+        ["rejected", "receipt_issue", "escalated_owner"].includes(
+            request.status
+        )
     );
     const awaitingAccountant = requests.filter(
         (request) => request.status === "pending_accountant"
@@ -335,11 +346,11 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                 first.receivedAt ?? first.createdAt
             )
         );
-    const pageDetails = view
-        ? {
+    const pageDetails = {
               "needs-attention": {
                   title: "Needs Attention",
-                  description: "Rejected, cancelled, and receipt-issue requests.",
+                  description:
+                      "Escalations, Accountant rejections, and receipt issues.",
               },
               "awaiting-accountant": {
                   title: "Awaiting Accountant",
@@ -355,11 +366,7 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                   description:
                       "Purchase requests recently received into inventory.",
               },
-          }[view]
-        : {
-              title: "Owner Overview",
-              description: "View and manage the complete stock-in workflow.",
-          };
+          }[view];
 
     return (
         <main className="app-page">
@@ -375,14 +382,12 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row">
-                        {view && (
-                            <Link
-                                href="/owner"
-                                className="secondary-action text-center"
-                            >
-                                Owner Overview
-                            </Link>
-                        )}
+                        <Link
+                            href="/dashboard"
+                            className="secondary-action text-center"
+                        >
+                            Dashboard
+                        </Link>
                         <Link
                             href="/inventory"
                             className="secondary-action text-center"
@@ -406,16 +411,16 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
 
                 {!errorMessage && (
                     <>
-                        {(!view || view === "needs-attention") && (
+                        {view === "needs-attention" && (
                             <RequestSection
                                 id="needs-attention"
                                 title="Needs Attention"
-                                description="Rejected, cancelled, and receipt-issue requests."
+                                description="Escalations, Accountant rejections, and receipt issues."
                                 emptyMessage="No requests currently need attention."
                                 requests={needsAttention}
                             />
                         )}
-                        {(!view || view === "awaiting-accountant") && (
+                        {view === "awaiting-accountant" && (
                             <RequestSection
                                 id="awaiting-accountant"
                                 title="Awaiting Accountant"
@@ -424,7 +429,7 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                                 requests={awaitingAccountant}
                             />
                         )}
-                        {(!view || view === "awaiting-receipt") && (
+                        {view === "awaiting-receipt" && (
                             <RequestSection
                                 id="awaiting-receipt"
                                 title="Awaiting Receipt"
@@ -433,7 +438,7 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
                                 requests={awaitingReceipt}
                             />
                         )}
-                        {(!view || view === "recently-completed") && (
+                        {view === "recently-completed" && (
                             <RequestSection
                                 id="recently-completed"
                                 title="Recently Completed"
@@ -447,8 +452,4 @@ export function OwnerWorkflow({ view }: { view?: OwnerWorkflowView }) {
             </div>
         </main>
     );
-}
-
-export default function OwnerPage() {
-    return <OwnerWorkflow />;
 }

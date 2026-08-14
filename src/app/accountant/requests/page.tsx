@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
+import RequestListFilters, {
+    DateFilterValue,
+    matchesDateFilter,
+} from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
 
 type PurchaseRequest = {
     id: number;
     status: string;
     createdAt: string;
+    reviewedAt: string | null;
+    decision: "pending" | "approved" | "rejected";
     requestedBy: string;
     lines: RequestLine[];
 };
@@ -26,6 +32,9 @@ type RequestRow = {
     status: string;
     created_at: string;
     requested_by: string;
+    accountant_approved_by: string | null;
+    accountant_approved_at: string | null;
+    owner_escalated_at: string | null;
 };
 
 type RequestLineRow = {
@@ -45,6 +54,24 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
     currency: "NGN",
 });
 
+const decisionDetails = {
+    pending: {
+        label: "Pending",
+        className:
+            "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+    },
+    approved: {
+        label: "Approved",
+        className:
+            "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+    },
+    rejected: {
+        label: "Rejected",
+        className:
+            "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+    },
+};
+
 function formatDate(value: string) {
     return new Intl.DateTimeFormat("en-GB", {
         day: "numeric",
@@ -58,6 +85,9 @@ export default function AccountantRequestsPage() {
     const [requests, setRequests] = useState<PurchaseRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
+    const [activeTab, setActiveTab] = useState("pending");
+    const [dateFilter, setDateFilter] = useState<DateFilterValue>("any");
+    const [pickedDate, setPickedDate] = useState("");
 
     useEffect(() => {
         let ignore = false;
@@ -71,6 +101,18 @@ export default function AccountantRequestsPage() {
             if (userError || !user) {
                 router.replace("/login");
                 return;
+            }
+
+            const requestedTab = new URLSearchParams(
+                window.location.search
+            ).get("tab");
+
+            if (
+                ["pending", "approved", "rejected", "all"].includes(
+                    requestedTab ?? ""
+                )
+            ) {
+                setActiveTab(requestedTab!);
             }
 
             const { data: profile, error: profileError } = await supabase
@@ -97,9 +139,13 @@ export default function AccountantRequestsPage() {
 
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
-                .select("id, status, created_at, requested_by")
-                .eq("status", "pending_accountant")
-                .order("created_at", { ascending: true });
+                .select(
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, owner_escalated_at"
+                )
+                .or(
+                    `status.eq.pending_accountant,accountant_approved_by.eq.${user.id}`
+                )
+                .order("created_at", { ascending: false });
 
             if (requestsError) {
                 console.error("Error loading purchase requests:", requestsError);
@@ -163,6 +209,14 @@ export default function AccountantRequestsPage() {
                 id: request.id,
                 status: request.status,
                 createdAt: request.created_at,
+                reviewedAt: request.accountant_approved_at,
+                decision:
+                    request.status === "pending_accountant"
+                        ? ("pending" as const)
+                        : request.status === "rejected" ||
+                            request.owner_escalated_at
+                          ? ("rejected" as const)
+                          : ("approved" as const),
                 requestedBy:
                     usersById.get(request.requested_by) ?? "Procurement user",
                 lines: lineRows
@@ -199,25 +253,36 @@ export default function AccountantRequestsPage() {
         );
     }
 
+    const filteredRequests = requests.filter((request) => {
+        const matchesTab =
+            activeTab === "all" || request.decision === activeTab;
+        const eventDate =
+            request.decision === "pending"
+                ? request.createdAt
+                : request.reviewedAt ?? request.createdAt;
+
+        return (
+            matchesTab && matchesDateFilter(eventDate, dateFilter, pickedDate)
+        );
+    });
+
+    function changeTab(tab: string) {
+        setActiveTab(tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", tab);
+        window.history.replaceState(null, "", url);
+    }
+
     return (
         <main className="app-page">
             <div className="mx-auto max-w-7xl">
                 <AppHeader />
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                        <h1 className="page-title">Purchase Approvals</h1>
-                        <p className="page-description mt-2">
-                            Review purchase requests waiting for your approval.
-                        </p>
-                    </div>
-
-                    <Link
-                        href="/accountant/approvals"
-                        className="secondary-action text-center"
-                    >
-                        Approval History
-                    </Link>
+                <div>
+                    <h1 className="page-title">Purchase Approvals</h1>
+                    <p className="page-description mt-2">
+                        Review pending requests and find previous decisions.
+                    </p>
                 </div>
 
                 {errorMessage && (
@@ -226,30 +291,45 @@ export default function AccountantRequestsPage() {
                     </div>
                 )}
 
-                {!errorMessage && requests.length === 0 && (
+                {!errorMessage && (
+                    <RequestListFilters
+                        tabs={[
+                            { value: "pending", label: "Pending" },
+                            { value: "approved", label: "Approved" },
+                            { value: "rejected", label: "Rejected" },
+                            { value: "all", label: "All" },
+                        ]}
+                        activeTab={activeTab}
+                        onTabChange={changeTab}
+                        dateFilter={dateFilter}
+                        onDateFilterChange={setDateFilter}
+                        pickedDate={pickedDate}
+                        onPickedDateChange={setPickedDate}
+                    />
+                )}
+
+                {!errorMessage && filteredRequests.length === 0 && (
                     <div className="surface-card mt-8 p-8 text-center">
                         <h2 className="text-xl font-semibold">
-                            No pending requests
+                            No matching requests
                         </h2>
                         <p className="text-muted mt-2">
-                            No purchase requests are waiting for approval.
+                            Try another status or date filter.
                         </p>
                     </div>
                 )}
 
-                {!errorMessage && requests.length > 0 && (
-                    <section className="mt-8" aria-labelledby="pending-heading">
-                        <h2 id="pending-heading" className="text-xl font-semibold">
-                            Pending Requests
-                        </h2>
-
-                        <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                            {requests.map((request) => {
+                {!errorMessage && filteredRequests.length > 0 && (
+                    <section className="mt-8" aria-label="Purchase requests">
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            {filteredRequests.map((request) => {
                                 const total = request.lines.reduce(
                                     (sum, line) =>
                                         sum + line.quantity * line.unitPrice,
                                     0
                                 );
+                                const decision =
+                                    decisionDetails[request.decision];
 
                                 return (
                                     <article
@@ -276,8 +356,10 @@ export default function AccountantRequestsPage() {
                                             </div>
 
                                             <div className="sm:text-right">
-                                                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                                                    Pending
+                                                <span
+                                                    className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${decision.className}`}
+                                                >
+                                                    {decision.label}
                                                 </span>
                                                 <p className="mt-3 text-xl font-semibold">
                                                     {currencyFormatter.format(total)}
@@ -288,9 +370,15 @@ export default function AccountantRequestsPage() {
                                         <div className="border-t border-[var(--border)] p-5">
                                             <Link
                                                 href={`/accountant/requests/${request.id}`}
-                                                className="primary-action w-full text-center"
+                                                className={`${
+                                                    request.decision === "pending"
+                                                        ? "primary-action"
+                                                        : "secondary-action"
+                                                } w-full text-center`}
                                             >
-                                                Review Request
+                                                {request.decision === "pending"
+                                                    ? "Review Request"
+                                                    : "View Request"}
                                             </Link>
                                         </div>
                                     </article>

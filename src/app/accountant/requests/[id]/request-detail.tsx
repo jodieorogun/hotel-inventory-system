@@ -24,11 +24,20 @@ type PurchaseRequest = {
     receiptIssueReportedBy: string | null;
     receiptIssueResolvedAt: string | null;
     receiptIssueResolvedBy: string | null;
+    ownerEscalatedAt: string | null;
+    ownerEscalatedBy: string | null;
+    ownerReviewedAt: string | null;
+    ownerReviewedBy: string | null;
+    ownerDecision: string | null;
+    ownerRejectionReason: string | null;
+    voidedAt: string | null;
+    voidedBy: string | null;
     lines: RequestLine[];
 };
 
 type RequestLine = {
     id: number;
+    itemId: number;
     itemName: string;
     quantity: number;
     unit: string;
@@ -50,6 +59,14 @@ type RequestRow = {
     receipt_issue_reported_at: string | null;
     receipt_issue_resolved_by: string | null;
     receipt_issue_resolved_at: string | null;
+    owner_escalated_by: string | null;
+    owner_escalated_at: string | null;
+    owner_reviewed_by: string | null;
+    owner_reviewed_at: string | null;
+    owner_decision: string | null;
+    owner_rejection_reason: string | null;
+    voided_by: string | null;
+    voided_at: string | null;
 };
 
 type RequestLineRow = {
@@ -94,6 +111,16 @@ const statusDetails: Record<
         className:
             "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
     },
+    escalated_owner: {
+        label: "Escalated to Owner",
+        className:
+            "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300",
+    },
+    cancelled: {
+        label: "Voided",
+        className:
+            "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300",
+    },
     received: {
         label: "Received",
         className:
@@ -128,6 +155,13 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
     const [rejectionError, setRejectionError] = useState("");
+    const [viewerRole, setViewerRole] = useState("");
+    const [availableItems, setAvailableItems] = useState<ItemRow[]>([]);
+    const [ownerEditOpen, setOwnerEditOpen] = useState(false);
+    const [ownerEditLines, setOwnerEditLines] = useState<RequestLine[]>([]);
+    const [ownerAction, setOwnerAction] = useState<
+        "approve" | "resubmit" | "void" | null
+    >(null);
 
     useEffect(() => {
         let ignore = false;
@@ -171,10 +205,14 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 return;
             }
 
+            if (!ignore) {
+                setViewerRole(profile.role);
+            }
+
             const { data: requestData, error: requestError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, rejection_reason, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, rejection_reason, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at, owner_escalated_by, owner_escalated_at, owner_reviewed_by, owner_reviewed_at, owner_decision, owner_rejection_reason, voided_by, voided_at"
                 )
                 .eq("id", Number(requestId))
                 .maybeSingle();
@@ -206,6 +244,9 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                 requestRow.storekeeper_verified_by,
                 requestRow.receipt_issue_reported_by,
                 requestRow.receipt_issue_resolved_by,
+                requestRow.owner_escalated_by,
+                requestRow.owner_reviewed_by,
+                requestRow.voided_by,
             ].filter((id): id is string => Boolean(id));
             const [linesResult, usersResult] = await Promise.all([
                 supabase
@@ -234,28 +275,25 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             }
 
             const lineRows = (linesResult.data ?? []) as RequestLineRow[];
-            const itemIds = [...new Set(lineRows.map((line) => line.item_id))];
             let itemRows: ItemRow[] = [];
 
-            if (itemIds.length > 0) {
-                const { data: itemData, error: itemsError } = await supabase
-                    .from("items")
-                    .select("id, name, unit")
-                    .in("id", itemIds);
+            const { data: itemData, error: itemsError } = await supabase
+                .from("items")
+                .select("id, name, unit")
+                .order("name");
 
-                if (itemsError) {
-                    console.error("Error loading requested items:", itemsError);
+            if (itemsError) {
+                console.error("Error loading requested items:", itemsError);
 
-                    if (!ignore) {
-                        setErrorMessage("Could not load the requested items.");
-                        setLoading(false);
-                    }
-
-                    return;
+                if (!ignore) {
+                    setErrorMessage("Could not load the requested items.");
+                    setLoading(false);
                 }
 
-                itemRows = (itemData ?? []) as ItemRow[];
+                return;
             }
+
+            itemRows = (itemData ?? []) as ItemRow[];
 
             const itemsById = new Map(itemRows.map((item) => [item.id, item]));
             const usersById = new Map(
@@ -292,11 +330,27 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                     ? (usersById.get(requestRow.receipt_issue_resolved_by) ??
                       "Owner")
                     : null,
+                ownerEscalatedAt: requestRow.owner_escalated_at,
+                ownerEscalatedBy: requestRow.owner_escalated_by
+                    ? (usersById.get(requestRow.owner_escalated_by) ??
+                      "Procurement user")
+                    : null,
+                ownerReviewedAt: requestRow.owner_reviewed_at,
+                ownerReviewedBy: requestRow.owner_reviewed_by
+                    ? (usersById.get(requestRow.owner_reviewed_by) ?? "Owner")
+                    : null,
+                ownerDecision: requestRow.owner_decision,
+                ownerRejectionReason: requestRow.owner_rejection_reason,
+                voidedAt: requestRow.voided_at,
+                voidedBy: requestRow.voided_by
+                    ? (usersById.get(requestRow.voided_by) ?? "Owner")
+                    : null,
                 lines: lineRows.map((line) => {
                     const item = itemsById.get(line.item_id);
 
                     return {
                         id: line.id,
+                        itemId: line.item_id,
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
                         unit: item?.unit ?? "",
@@ -306,6 +360,7 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             };
 
             if (!ignore) {
+                setAvailableItems(itemRows);
                 setRequest(formattedRequest);
                 setLoading(false);
             }
@@ -322,7 +377,13 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         status: RequestStatus,
         reason?: string
     ) {
-        if (!request || request.status !== "pending_accountant") {
+        const ownerReview =
+            viewerRole === "owner" && request?.status === "escalated_owner";
+
+        if (
+            !request ||
+            (request.status !== "pending_accountant" && !ownerReview)
+        ) {
             return;
         }
 
@@ -354,19 +415,36 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             return;
         }
 
+        const auditFields = ownerReview
+            ? {
+                  owner_reviewed_by: user.id,
+                  owner_reviewed_at: new Date().toISOString(),
+                  owner_decision: status,
+              }
+            : {
+                  accountant_approved_by: user.id,
+                  accountant_approved_at: new Date().toISOString(),
+              };
+        const currentStatus = request.status;
         const { data, error } = await supabase
             .from("purchase_requests")
             .update({
                 status,
-                accountant_approved_by: user.id,
-                accountant_approved_at: new Date().toISOString(),
+                ...auditFields,
                 storekeeper_verified_by: null,
                 storekeeper_verified_at: null,
-                rejection_reason:
-                    status === "rejected" ? reason?.trim() : null,
+                rejection_reason: ownerReview
+                    ? request.rejectionReason
+                    : status === "rejected"
+                      ? reason?.trim()
+                      : null,
+                owner_rejection_reason:
+                    ownerReview && status === "rejected"
+                        ? reason?.trim()
+                        : null,
             })
             .eq("id", request.id)
-            .eq("status", "pending_accountant")
+            .eq("status", currentStatus)
             .select("id")
             .maybeSingle();
 
@@ -386,7 +464,145 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
             return;
         }
 
-        router.push("/accountant/requests");
+        router.push(
+            viewerRole === "owner"
+                ? "/owner/needs-attention"
+                : "/accountant/requests"
+        );
+        router.refresh();
+    }
+
+    function openOwnerEdit() {
+        if (!request) {
+            return;
+        }
+
+        setOwnerEditLines(request.lines.map((line) => ({ ...line })));
+        setOwnerEditOpen(true);
+        setErrorMessage("");
+    }
+
+    function updateOwnerEditLine(
+        lineId: number,
+        field: "itemId" | "quantity" | "unitPrice",
+        value: number
+    ) {
+        setOwnerEditLines((lines) =>
+            lines.map((line) => {
+                if (line.id !== lineId) {
+                    return line;
+                }
+
+                if (field === "itemId") {
+                    const item = availableItems.find(
+                        (availableItem) => availableItem.id === value
+                    );
+
+                    return item
+                        ? {
+                              ...line,
+                              itemId: item.id,
+                              itemName: item.name,
+                              unit: item.unit,
+                          }
+                        : line;
+                }
+
+                return { ...line, [field]: value };
+            })
+        );
+    }
+
+    async function resubmitAsOwner() {
+        if (
+            !request ||
+            request.status !== "rejected" ||
+            viewerRole !== "owner" ||
+            ownerAction
+        ) {
+            return;
+        }
+
+        if (
+            ownerEditLines.length === 0 ||
+            ownerEditLines.some(
+                (line) => line.quantity <= 0 || line.unitPrice < 0
+            )
+        ) {
+            setErrorMessage(
+                "Every item needs a quantity above zero and a valid unit price."
+            );
+            return;
+        }
+
+        setOwnerAction("resubmit");
+        setErrorMessage("");
+
+        const { error } = await supabase.rpc("owner_resubmit_rejected_request", {
+            target_request_id: request.id,
+            updated_items: ownerEditLines.map((line) => ({
+                request_item_id: line.id,
+                item_id: line.itemId,
+                quantity: line.quantity,
+                unit_price: line.unitPrice,
+            })),
+        });
+
+        if (error) {
+            console.error("Error resubmitting rejected request as Owner:", error);
+            setErrorMessage("Could not modify and resubmit this request.");
+            setOwnerAction(null);
+            return;
+        }
+
+        router.push("/owner/awaiting-accountant");
+        router.refresh();
+    }
+
+    async function decideRejectedRequestAsOwner(
+        action: "approve" | "void"
+    ) {
+        if (
+            !request ||
+            request.status !== "rejected" ||
+            viewerRole !== "owner" ||
+            ownerAction
+        ) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            action === "approve"
+                ? `Approve rejected Purchase Request #${request.id} as the Owner?\n\nIt will move to Awaiting Receipt.`
+                : `Void rejected Purchase Request #${request.id}?\n\nNo stock will be added and this cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setOwnerAction(action);
+        setErrorMessage("");
+
+        const { error } = await supabase.rpc(
+            action === "approve"
+                ? "owner_approve_rejected_request"
+                : "owner_void_rejected_request",
+            { target_request_id: request.id }
+        );
+
+        if (error) {
+            console.error(`Error performing Owner ${action}:`, error);
+            setErrorMessage(`Could not ${action} this rejected request.`);
+            setOwnerAction(null);
+            return;
+        }
+
+        router.push(
+            action === "approve"
+                ? "/owner/awaiting-receipt"
+                : "/owner/needs-attention"
+        );
         router.refresh();
     }
 
@@ -442,7 +658,11 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
         (sum, line) => sum + line.quantity * line.unitPrice,
         0
     );
-    const isPending = request.status === "pending_accountant";
+    const isPending =
+        request.status === "pending_accountant" ||
+        (viewerRole === "owner" && request.status === "escalated_owner");
+    const isOwnerRejected =
+        viewerRole === "owner" && request.status === "rejected";
 
     return (
         <main className="app-page">
@@ -475,13 +695,15 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                     </div>
                 )}
 
-                {request.status === "rejected" && request.rejectionReason && (
+                {request.status === "rejected" &&
+                    (request.ownerRejectionReason || request.rejectionReason) && (
                     <div className="mt-8 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-5">
                         <h2 className="font-semibold text-[var(--danger)]">
                             Reason for rejection
                         </h2>
                         <p className="mt-2 whitespace-pre-wrap text-[var(--foreground)]">
-                            {request.rejectionReason}
+                            {request.ownerRejectionReason ??
+                                request.rejectionReason}
                         </p>
                     </div>
                 )}
@@ -497,14 +719,43 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                             ? [
                                   {
                                       action:
-                                          request.status === "rejected"
+                                          Boolean(request.rejectionReason)
                                               ? "Rejected"
                                               : "Approved",
                                       person: request.reviewedBy,
                                       timestamp: request.reviewedAt,
                                       detail:
-                                          request.status === "rejected"
+                                          request.rejectionReason
                                               ? request.rejectionReason
+                                              : null,
+                                  },
+                              ]
+                            : []),
+                        ...(request.ownerEscalatedAt &&
+                        request.ownerEscalatedBy
+                            ? [
+                                  {
+                                      action: "Escalated to Owner",
+                                      person: request.ownerEscalatedBy,
+                                      timestamp: request.ownerEscalatedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.ownerReviewedAt && request.ownerReviewedBy
+                            ? [
+                                  {
+                                      action:
+                                          request.ownerDecision === "approved"
+                                              ? "Approved"
+                                              : request.ownerDecision ===
+                                                  "resubmitted"
+                                                ? "Modified and resubmitted"
+                                              : "Rejected",
+                                      person: request.ownerReviewedBy,
+                                      timestamp: request.ownerReviewedAt,
+                                      detail:
+                                          request.ownerDecision === "rejected"
+                                              ? request.ownerRejectionReason
                                               : null,
                                   },
                               ]
@@ -538,6 +789,15 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                       action: "Received",
                                       person: request.receivedBy,
                                       timestamp: request.receivedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.voidedAt && request.voidedBy
+                            ? [
+                                  {
+                                      action: "Voided",
+                                      person: request.voidedBy,
+                                      timestamp: request.voidedAt,
                                   },
                               ]
                             : []),
@@ -613,6 +873,48 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                                 : "Approve Request"}
                         </button>
                     </div>
+                ) : isOwnerRejected ? (
+                    <div className="surface-card mt-6 p-5">
+                        <p className="font-semibold">Owner decision required</p>
+                        <p className="text-muted mt-1 text-sm">
+                            Modify and return this request to the Accountant,
+                            approve it as an Owner override, or permanently void it.
+                        </p>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                            <button
+                                type="button"
+                                onClick={openOwnerEdit}
+                                disabled={ownerAction !== null}
+                                className="secondary-action"
+                            >
+                                Modify and Resubmit
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    decideRejectedRequestAsOwner("approve")
+                                }
+                                disabled={ownerAction !== null}
+                                className="primary-action"
+                            >
+                                {ownerAction === "approve"
+                                    ? "Approving..."
+                                    : "Approve Request"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    decideRejectedRequestAsOwner("void")
+                                }
+                                disabled={ownerAction !== null}
+                                className="secondary-action border-[var(--danger-border)] text-[var(--danger)]"
+                            >
+                                {ownerAction === "void"
+                                    ? "Voiding..."
+                                    : "Void Request"}
+                            </button>
+                        </div>
+                    </div>
                 ) : (
                     <div className="surface-card mt-6 p-5">
                         <p className="text-muted">
@@ -622,6 +924,142 @@ export default function RequestDetail({ requestId }: { requestId: string }) {
                     </div>
                 )}
             </div>
+
+            {ownerEditOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+                    role="presentation"
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="owner-modify-title"
+                        className="surface-card max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6 sm:p-7"
+                    >
+                        <h2
+                            id="owner-modify-title"
+                            className="text-xl font-semibold"
+                        >
+                            Modify Purchase Request #{request.id}
+                        </h2>
+                        <p className="text-muted mt-2 text-sm">
+                            Update the rejected request and send it back to the
+                            Accountant for another review.
+                        </p>
+
+                        <div className="mt-6 space-y-4">
+                            {ownerEditLines.map((line) => (
+                                <div
+                                    key={line.id}
+                                    className="rounded-xl border border-[var(--border)] p-4"
+                                >
+                                    <label
+                                        htmlFor={`owner-item-${line.id}`}
+                                        className="form-label"
+                                    >
+                                        Item
+                                    </label>
+                                    <select
+                                        id={`owner-item-${line.id}`}
+                                        value={line.itemId}
+                                        onChange={(event) =>
+                                            updateOwnerEditLine(
+                                                line.id,
+                                                "itemId",
+                                                Number(event.target.value)
+                                            )
+                                        }
+                                        disabled={ownerAction === "resubmit"}
+                                        className="form-control"
+                                    >
+                                        {availableItems.map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.name} ({item.unit})
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label
+                                                htmlFor={`owner-quantity-${line.id}`}
+                                                className="form-label"
+                                            >
+                                                Quantity ({line.unit})
+                                            </label>
+                                            <input
+                                                id={`owner-quantity-${line.id}`}
+                                                type="number"
+                                                min="0.01"
+                                                step="any"
+                                                value={line.quantity}
+                                                onChange={(event) =>
+                                                    updateOwnerEditLine(
+                                                        line.id,
+                                                        "quantity",
+                                                        Number(event.target.value)
+                                                    )
+                                                }
+                                                disabled={
+                                                    ownerAction === "resubmit"
+                                                }
+                                                className="form-control"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label
+                                                htmlFor={`owner-price-${line.id}`}
+                                                className="form-label"
+                                            >
+                                                Unit price
+                                            </label>
+                                            <input
+                                                id={`owner-price-${line.id}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={line.unitPrice}
+                                                onChange={(event) =>
+                                                    updateOwnerEditLine(
+                                                        line.id,
+                                                        "unitPrice",
+                                                        Number(event.target.value)
+                                                    )
+                                                }
+                                                disabled={
+                                                    ownerAction === "resubmit"
+                                                }
+                                                className="form-control"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setOwnerEditOpen(false)}
+                                disabled={ownerAction === "resubmit"}
+                                className="secondary-action"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={resubmitAsOwner}
+                                disabled={ownerAction === "resubmit"}
+                                className="primary-action"
+                            >
+                                {ownerAction === "resubmit"
+                                    ? "Resubmitting..."
+                                    : "Save and Resubmit"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {rejectDialogOpen && (
                 <div

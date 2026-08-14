@@ -123,8 +123,8 @@ export default function OwnerRequestDetail({
                     <div className="error-message" role="alert">
                         {errorMessage}
                     </div>
-                    <Link href="/owner" className="secondary-action mt-6">
-                        Back to Owner Overview
+                    <Link href="/dashboard" className="secondary-action mt-6">
+                        Back to Dashboard
                     </Link>
                 </div>
             </main>

@@ -21,6 +21,15 @@ type ReceiptRequest = {
     receiptIssueReportedBy: string | null;
     receiptIssueResolvedAt: string | null;
     receiptIssueResolvedBy: string | null;
+    accountantReviewedAt: string | null;
+    accountantReviewedBy: string | null;
+    accountantRejectionReason: string | null;
+    ownerEscalatedAt: string | null;
+    ownerEscalatedBy: string | null;
+    ownerReviewedAt: string | null;
+    ownerReviewedBy: string | null;
+    ownerDecision: string | null;
+    receiptIssueResolution: string | null;
     lines: ReceiptLine[];
 };
 
@@ -28,6 +37,7 @@ type ReceiptLine = {
     id: number;
     itemName: string;
     quantity: number;
+    receivedQuantity: number | null;
     unit: string;
 };
 
@@ -45,12 +55,20 @@ type RequestRow = {
     receipt_issue_reported_at: string | null;
     receipt_issue_resolved_by: string | null;
     receipt_issue_resolved_at: string | null;
+    rejection_reason: string | null;
+    owner_escalated_by: string | null;
+    owner_escalated_at: string | null;
+    owner_reviewed_by: string | null;
+    owner_reviewed_at: string | null;
+    owner_decision: string | null;
+    receipt_issue_resolution: string | null;
 };
 
 type RequestItemRow = {
     id: number;
     item_id: number;
     quantity: number | string;
+    received_quantity: number | string | null;
 };
 
 type ItemRow = {
@@ -79,12 +97,13 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
     const [request, setRequest] = useState<ReceiptRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState(false);
-    const [reportingIssue, setReportingIssue] = useState(false);
-    const [issueDialogOpen, setIssueDialogOpen] = useState(false);
-    const [issueReason, setIssueReason] = useState("");
-    const [issueError, setIssueError] = useState("");
+    const [receivedQuantities, setReceivedQuantities] = useState<
+        Record<number, string>
+    >({});
     const [viewerRole, setViewerRole] = useState("");
-    const [resolvingIssue, setResolvingIssue] = useState(false);
+    const [ownerAction, setOwnerAction] = useState<
+        "return" | "accept" | "void" | null
+    >(null);
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
@@ -136,7 +155,7 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
             const { data: requestData, error: requestError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at, receipt_issue_resolution, rejection_reason, owner_escalated_by, owner_escalated_at, owner_reviewed_by, owner_reviewed_at, owner_decision"
                 )
                 .eq("id", Number(requestId))
                 .in("status", ["approved", "received", "receipt_issue"])
@@ -171,11 +190,13 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 requestRow.storekeeper_verified_by,
                 requestRow.receipt_issue_reported_by,
                 requestRow.receipt_issue_resolved_by,
+                requestRow.owner_escalated_by,
+                requestRow.owner_reviewed_by,
             ].filter((id): id is string => Boolean(id));
             const [linesResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("id, item_id, quantity")
+                    .select("id, item_id, quantity, received_quantity")
                     .eq("request_id", requestRow.id)
                     .order("id", { ascending: true }),
                 supabase.from("users").select("id, name").in("id", userIds),
@@ -230,13 +251,20 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 id: requestRow.id,
                 status: requestRow.status,
                 createdAt: requestRow.created_at,
-                approvedAt: requestRow.accountant_approved_at,
+                approvedAt:
+                    requestRow.owner_decision === "approved"
+                        ? requestRow.owner_reviewed_at
+                        : requestRow.accountant_approved_at,
                 receivedAt: requestRow.storekeeper_verified_at,
                 requestedBy:
                     usersById.get(requestRow.requested_by) ?? "Procurement user",
-                approvedBy: requestRow.accountant_approved_by
-                    ? (usersById.get(requestRow.accountant_approved_by) ??
-                      "Accountant")
+                approvedBy:
+                    requestRow.owner_decision === "approved" &&
+                    requestRow.owner_reviewed_by
+                        ? (usersById.get(requestRow.owner_reviewed_by) ?? "Owner")
+                        : requestRow.accountant_approved_by
+                          ? (usersById.get(requestRow.accountant_approved_by) ??
+                            "Accountant")
                     : "Not recorded",
                 receivedBy: requestRow.storekeeper_verified_by
                     ? (usersById.get(requestRow.storekeeper_verified_by) ??
@@ -253,6 +281,23 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                     ? (usersById.get(requestRow.receipt_issue_resolved_by) ??
                       "Owner")
                     : null,
+                accountantReviewedAt: requestRow.accountant_approved_at,
+                accountantReviewedBy: requestRow.accountant_approved_by
+                    ? (usersById.get(requestRow.accountant_approved_by) ??
+                      "Accountant")
+                    : null,
+                accountantRejectionReason: requestRow.rejection_reason,
+                ownerEscalatedAt: requestRow.owner_escalated_at,
+                ownerEscalatedBy: requestRow.owner_escalated_by
+                    ? (usersById.get(requestRow.owner_escalated_by) ??
+                      "Procurement user")
+                    : null,
+                ownerReviewedAt: requestRow.owner_reviewed_at,
+                ownerReviewedBy: requestRow.owner_reviewed_by
+                    ? (usersById.get(requestRow.owner_reviewed_by) ?? "Owner")
+                    : null,
+                ownerDecision: requestRow.owner_decision,
+                receiptIssueResolution: requestRow.receipt_issue_resolution,
                 lines: lineRows.map((line) => {
                     const item = itemsById.get(line.item_id);
 
@@ -260,6 +305,10 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                         id: line.id,
                         itemName: item?.name ?? "Unknown item",
                         quantity: Number(line.quantity),
+                        receivedQuantity:
+                            line.received_quantity === null
+                                ? null
+                                : Number(line.received_quantity),
                         unit: item?.unit ?? "",
                     };
                 }),
@@ -267,6 +316,16 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
 
             if (!ignore) {
                 setRequest(formattedRequest);
+                setReceivedQuantities(
+                    Object.fromEntries(
+                        formattedRequest.lines.map((line) => [
+                            line.id,
+                            line.receivedQuantity === null
+                                ? ""
+                                : String(line.receivedQuantity),
+                        ])
+                    )
+                );
                 setLoading(false);
             }
         }
@@ -287,8 +346,32 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
             return;
         }
 
+        const receivedItems = request.lines.map((line) => ({
+            request_item_id: line.id,
+            actual_quantity: Number(receivedQuantities[line.id]),
+        }));
+
+        if (
+            receivedItems.some(
+                (line) =>
+                    receivedQuantities[line.request_item_id]?.trim() === "" ||
+                    !Number.isFinite(line.actual_quantity) ||
+                    line.actual_quantity < 0
+            )
+        ) {
+            setErrorMessage(
+                "Enter the actual quantity received for every item. Use 0 if none arrived."
+            );
+            return;
+        }
+
+        const hasMismatch = request.lines.some(
+            (line) => Number(receivedQuantities[line.id]) !== line.quantity
+        );
         const confirmed = window.confirm(
-            `Confirm receipt for Purchase Request #${request.id}?\n\nOnly continue if every listed item and quantity was physically received correctly. This will add the quantities to inventory.`
+            hasMismatch
+                ? `Submit received quantities for Purchase Request #${request.id}?\n\nOne or more quantities do not match. The request will be flagged as a Receipt Issue and no stock will be added.`
+                : `Confirm receipt for Purchase Request #${request.id}?\n\nAll quantities match. The received quantities will be added to inventory.`
         );
 
         if (!confirmed) {
@@ -298,8 +381,9 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
         setConfirming(true);
         setErrorMessage("");
 
-        const { error } = await supabase.rpc("confirm_purchase_delivery", {
+        const { data, error } = await supabase.rpc("submit_purchase_receipt", {
             target_request_id: request.id,
+            received_items: receivedItems,
         });
 
         if (error) {
@@ -313,92 +397,69 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
             return;
         }
 
-        router.push("/storekeeper/receipts");
+        const createdIssue = data === "receipt_issue";
+        router.push(
+            viewerRole === "owner"
+                ? createdIssue
+                    ? "/owner/needs-attention"
+                    : "/owner/recently-completed"
+                : "/storekeeper/receipts"
+        );
         router.refresh();
     }
 
-    async function resolveReceiptIssue() {
+    async function handleOwnerIssueAction(
+        action: "return" | "accept" | "void"
+    ) {
         if (
             !request ||
             request.status !== "receipt_issue" ||
             viewerRole !== "owner" ||
-            resolvingIssue
+            ownerAction
         ) {
             return;
         }
 
+        const actionDetails = {
+            return: {
+                question: `Return Purchase Request #${request.id} to the Storekeeper for another count?`,
+                rpc: "return_receipt_to_storekeeper",
+                destination: "/owner/awaiting-receipt",
+            },
+            accept: {
+                question: `Accept the actual quantities for Purchase Request #${request.id}?\n\nThe actual quantities will be added to inventory and the request will be closed.`,
+                rpc: "accept_actual_purchase_receipt",
+                destination: "/owner/recently-completed",
+            },
+            void: {
+                question: `Void Purchase Request #${request.id}?\n\nNo stock will be added and this cannot be undone.`,
+                rpc: "void_purchase_receipt",
+                destination: "/owner/needs-attention",
+            },
+        }[action];
         const confirmed = window.confirm(
-            `Mark the receipt issue for Purchase Request #${request.id} as resolved?\n\nThe request will return to Awaiting Receipt. No inventory will be changed until the receipt is confirmed.`
+            actionDetails.question
         );
 
         if (!confirmed) {
             return;
         }
 
-        setResolvingIssue(true);
+        setOwnerAction(action);
         setErrorMessage("");
 
-        const { error } = await supabase.rpc("resolve_receipt_issue", {
+        const { error } = await supabase.rpc(actionDetails.rpc, {
             target_request_id: request.id,
         });
 
         if (error) {
-            console.error("Error resolving receipt issue:", error);
-            setErrorMessage(
-                error.message.includes("does not have a receipt issue")
-                    ? "This receipt issue has already been resolved."
-                    : "Could not resolve this receipt issue. Please try again."
-            );
-            setResolvingIssue(false);
+            console.error(`Error performing receipt issue ${action}:`, error);
+            setErrorMessage("Could not update this receipt issue. Please try again.");
+            setOwnerAction(null);
             return;
         }
 
-        router.push("/owner");
-        router.refresh();
-    }
-
-    function openIssueDialog() {
-        setIssueReason("");
-        setIssueError("");
-        setIssueDialogOpen(true);
-    }
-
-    async function submitReceiptIssue(
-        event: React.FormEvent<HTMLFormElement>
-    ) {
-        event.preventDefault();
-
-        if (!request || request.status !== "approved" || reportingIssue) {
-            return;
-        }
-
-        const reason = issueReason.trim();
-
-        if (!reason) {
-            setIssueError("Please explain the receipt issue.");
-            return;
-        }
-
-        setReportingIssue(true);
-        setIssueError("");
-
-        const { error } = await supabase.rpc("report_receipt_issue", {
-            target_request_id: request.id,
-            issue_reason: reason,
-        });
-
-        if (error) {
-            console.error("Error reporting receipt issue:", error);
-            setIssueError(
-                error.message.includes("not awaiting receipt")
-                    ? "This request is no longer awaiting receipt."
-                    : "Could not record the receipt issue. Please try again."
-            );
-            setReportingIssue(false);
-            return;
-        }
-
-        router.push("/storekeeper/receipts");
+        router.push(actionDetails.destination);
         router.refresh();
     }
 
@@ -422,7 +483,11 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                         {errorMessage}
                     </div>
                     <Link
-                        href="/storekeeper/receipts"
+                        href={
+                            viewerRole === "owner"
+                                ? "/owner/needs-attention"
+                                : "/storekeeper/receipts"
+                        }
                         className="secondary-action mt-6"
                     >
                         Back to Incoming Stock
@@ -579,7 +644,43 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                             person: request.requestedBy,
                             timestamp: request.createdAt,
                         },
-                        ...(request.approvedAt
+                        ...(request.accountantRejectionReason &&
+                        request.accountantReviewedAt &&
+                        request.accountantReviewedBy
+                            ? [
+                                  {
+                                      action: "Rejected",
+                                      person: request.accountantReviewedBy,
+                                      timestamp: request.accountantReviewedAt,
+                                      detail: request.accountantRejectionReason,
+                                  },
+                              ]
+                            : []),
+                        ...(request.ownerEscalatedAt && request.ownerEscalatedBy
+                            ? [
+                                  {
+                                      action: "Escalated to Owner",
+                                      person: request.ownerEscalatedBy,
+                                      timestamp: request.ownerEscalatedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(request.ownerReviewedAt && request.ownerReviewedBy
+                            ? [
+                                  {
+                                      action:
+                                          request.ownerDecision === "approved"
+                                              ? "Approved"
+                                              : request.ownerDecision ===
+                                                  "resubmitted"
+                                                ? "Modified and resubmitted"
+                                              : "Rejected",
+                                      person: request.ownerReviewedBy,
+                                      timestamp: request.ownerReviewedAt,
+                                  },
+                              ]
+                            : []),
+                        ...(!request.ownerReviewedAt && request.approvedAt
                             ? [
                                   {
                                       action: "Approved",
@@ -604,7 +705,17 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                         request.receiptIssueResolvedBy
                             ? [
                                   {
-                                      action: "Receipt issue resolved",
+                                      action:
+                                          request.receiptIssueResolution ===
+                                          "returned_to_storekeeper"
+                                              ? "Returned to Storekeeper"
+                                              : request.receiptIssueResolution ===
+                                                  "accepted_actual"
+                                                ? "Actual quantities accepted"
+                                                : request.receiptIssueResolution ===
+                                                    "voided"
+                                                  ? "Request voided"
+                                                  : "Receipt issue resolved",
                                       person: request.receiptIssueResolvedBy,
                                       timestamp:
                                           request.receiptIssueResolvedAt,
@@ -624,9 +735,10 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 />
 
                 <div className="surface-card mt-8 overflow-hidden">
-                    <div className="hidden grid-cols-[minmax(0,1fr)_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
+                    <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
                         <span>Item</span>
-                        <span className="w-36">Quantity</span>
+                        <span className="w-36">Approved</span>
+                        <span className="w-40">Actual Received</span>
                     </div>
 
                     {request.lines.length === 0 ? (
@@ -637,17 +749,68 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                         request.lines.map((line) => (
                             <div
                                 key={line.id}
-                                className="grid gap-3 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6"
+                                className="grid gap-3 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-6"
                             >
                                 <div>
                                     <p className="font-medium">{line.itemName}</p>
                                     <p className="text-muted mt-1 text-sm sm:hidden">
-                                        {line.quantity} {line.unit}
+                                        Approved: {line.quantity} {line.unit}
                                     </p>
                                 </div>
                                 <p className="hidden w-36 sm:block">
                                     {line.quantity} {line.unit}
                                 </p>
+                                {request.status === "approved" ? (
+                                    <div className="w-full sm:w-40">
+                                        <label
+                                            htmlFor={`received-${line.id}`}
+                                            className="form-label sm:sr-only"
+                                        >
+                                            Actual quantity received for {line.itemName}
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                id={`received-${line.id}`}
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                value={
+                                                    receivedQuantities[line.id] ??
+                                                    ""
+                                                }
+                                                onChange={(event) =>
+                                                    setReceivedQuantities(
+                                                        (quantities) => ({
+                                                            ...quantities,
+                                                            [line.id]:
+                                                                event.target.value,
+                                                        })
+                                                    )
+                                                }
+                                                disabled={confirming}
+                                                className="form-control min-w-0"
+                                                placeholder="0"
+                                            />
+                                            <span className="text-muted text-sm">
+                                                {line.unit}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p
+                                        className={`w-40 font-semibold ${
+                                            line.receivedQuantity !== null &&
+                                            line.receivedQuantity !== line.quantity
+                                                ? "text-[var(--danger)]"
+                                                : ""
+                                        }`}
+                                    >
+                                        {line.receivedQuantity ?? "Not recorded"}{" "}
+                                        {line.receivedQuantity !== null
+                                            ? line.unit
+                                            : ""}
+                                    </p>
+                                )}
                             </div>
                         ))
                     )}
@@ -675,16 +838,44 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                             </div>
 
                             {viewerRole === "owner" && (
-                                <button
-                                    type="button"
-                                    onClick={resolveReceiptIssue}
-                                    disabled={resolvingIssue}
-                                    className="primary-action shrink-0"
-                                >
-                                    {resolvingIssue
-                                        ? "Resolving Issue..."
-                                        : "Mark Issue Resolved"}
-                                </button>
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            handleOwnerIssueAction("return")
+                                        }
+                                        disabled={ownerAction !== null}
+                                        className="secondary-action"
+                                    >
+                                        {ownerAction === "return"
+                                            ? "Returning..."
+                                            : "Return to Storekeeper"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            handleOwnerIssueAction("accept")
+                                        }
+                                        disabled={ownerAction !== null}
+                                        className="primary-action"
+                                    >
+                                        {ownerAction === "accept"
+                                            ? "Accepting..."
+                                            : "Accept Actual Quantity"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            handleOwnerIssueAction("void")
+                                        }
+                                        disabled={ownerAction !== null}
+                                        className="secondary-action border-[var(--danger-border)] text-[var(--danger)]"
+                                    >
+                                        {ownerAction === "void"
+                                            ? "Voiding..."
+                                            : "Void Request"}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -693,29 +884,21 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                         <div className="surface-card mt-6 p-5">
                             <p className="font-semibold">Before confirming</p>
                             <p className="text-muted mt-1 text-sm">
-                                Confirm only when every item and quantity listed
-                                above has been physically received correctly.
+                                Enter the actual amount received for every item. A
+                                mismatch will create a Receipt Issue without changing
+                                inventory.
                             </p>
                         </div>
 
-                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                            <button
-                                type="button"
-                                onClick={openIssueDialog}
-                                disabled={confirming}
-                                className="secondary-action disabled:cursor-not-allowed disabled:opacity-55"
-                            >
-                                Receipt Issue
-                            </button>
+                        <div className="mt-6">
                             <button
                                 type="button"
                                 onClick={confirmReceipt}
                                 disabled={
                                     confirming ||
-                                    reportingIssue ||
                                     request.lines.length === 0
                                 }
-                                className="primary-action"
+                                className="primary-action w-full"
                             >
                                 {confirming
                                     ? "Confirming Receipt..."
@@ -726,81 +909,6 @@ export default function ReceiptDetail({ requestId }: { requestId: string }) {
                 )}
             </div>
 
-            {issueDialogOpen && (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-                    role="presentation"
-                >
-                    <form
-                        onSubmit={submitReceiptIssue}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="receipt-issue-title"
-                        className="surface-card w-full max-w-lg p-6 sm:p-7"
-                    >
-                        <h2
-                            id="receipt-issue-title"
-                            className="text-xl font-semibold"
-                        >
-                            Report Receipt Issue
-                        </h2>
-                        <p className="text-muted mt-2 text-sm">
-                            Request #{request.id} will be flagged for attention and
-                            no stock will be added.
-                        </p>
-
-                        <label
-                            htmlFor="receipt-issue-reason"
-                            className="form-label mt-6"
-                        >
-                            What is wrong with the receipt?
-                        </label>
-                        <textarea
-                            id="receipt-issue-reason"
-                            value={issueReason}
-                            onChange={(event) => {
-                                setIssueReason(event.target.value);
-                                setIssueError("");
-                            }}
-                            rows={4}
-                            maxLength={500}
-                            autoFocus
-                            disabled={reportingIssue}
-                            placeholder="For example: Expected 12 Glade but only 8 were received."
-                            className="form-control resize-y"
-                        />
-
-                        {issueError && (
-                            <p
-                                className="mt-3 text-sm text-[var(--danger)]"
-                                role="alert"
-                            >
-                                {issueError}
-                            </p>
-                        )}
-
-                        <div className="mt-6 grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setIssueDialogOpen(false)}
-                                disabled={reportingIssue}
-                                className="secondary-action disabled:cursor-not-allowed disabled:opacity-55"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={reportingIssue}
-                                className="primary-action bg-[var(--danger)] text-white hover:bg-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-55"
-                            >
-                                {reportingIssue
-                                    ? "Reporting Issue..."
-                                    : "Report Issue"}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
         </main>
     );
 }

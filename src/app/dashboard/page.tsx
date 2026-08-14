@@ -11,26 +11,46 @@ type UserProfile = {
     role: string;
 };
 
-type OwnerWorkflowCounts = {
-    needsAttention: number;
-    awaitingAccountant: number;
-    awaitingReceipt: number;
-    recentlyCompleted: number;
+type RequestSummary = {
+    status: string;
+    requested_by: string;
+    accountant_approved_by: string | null;
+    owner_escalated_at: string | null;
+    receipt_issue_reason: string | null;
+    receipt_issue_resolved_at: string | null;
 };
 
-const emptyOwnerCounts: OwnerWorkflowCounts = {
-    needsAttention: 0,
-    awaitingAccountant: 0,
-    awaitingReceipt: 0,
-    recentlyCompleted: 0,
-};
+function WorkflowWidget({
+    href,
+    title,
+    count,
+    description,
+}: {
+    href: string;
+    title: string;
+    count: number;
+    description: string;
+}) {
+    return (
+        <Link
+            href={href}
+            className="surface-card interactive-card p-7 lg:p-8"
+        >
+            <h2 className="text-xl font-semibold">{title}</h2>
+            <p className="mt-3 text-3xl font-semibold">{count}</p>
+            <p className="text-muted mt-1 text-sm">{description}</p>
+        </Link>
+    );
+}
 
 export default function DashboardPage() {
     const router = useRouter();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [ownerCounts, setOwnerCounts] =
-        useState<OwnerWorkflowCounts>(emptyOwnerCounts);
+    const [workflowCounts, setWorkflowCounts] = useState<Record<string, number>>(
+        {}
+    );
+    const [inventoryItemCount, setInventoryItemCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -57,34 +77,101 @@ export default function DashboardPage() {
                 return;
             }
 
-            if (data.role === "owner") {
-                const { data: requestData, error: requestsError } =
-                    await supabase.from("purchase_requests").select("status");
+            const { data: requestData, error: requestsError } = await supabase
+                .from("purchase_requests")
+                .select(
+                    "status, requested_by, accountant_approved_by, owner_escalated_at, receipt_issue_reason, receipt_issue_resolved_at"
+                );
 
-                if (requestsError) {
+            if (requestsError) {
+                console.error("Error loading workflow counts:", requestsError);
+            } else {
+                const requests = (requestData ?? []) as RequestSummary[];
+                const ownRequests = requests.filter(
+                    (request) => request.requested_by === user.id
+                );
+                const accountantRequests = requests.filter(
+                    (request) =>
+                        request.status === "pending_accountant" ||
+                        request.accountant_approved_by === user.id
+                );
+
+                setWorkflowCounts({
+                    procurementActive: ownRequests.filter((request) =>
+                        [
+                            "pending_accountant",
+                            "approved",
+                            "receipt_issue",
+                            "escalated_owner",
+                        ].includes(request.status)
+                    ).length,
+                    procurementRejected: ownRequests.filter(
+                        (request) => request.status === "rejected"
+                    ).length,
+                    procurementCompleted: ownRequests.filter(
+                        (request) => request.status === "received"
+                    ).length,
+                    procurementAll: ownRequests.length,
+                    accountantPending: accountantRequests.filter(
+                        (request) => request.status === "pending_accountant"
+                    ).length,
+                    accountantApproved: accountantRequests.filter(
+                        (request) =>
+                            request.status !== "pending_accountant" &&
+                            request.status !== "rejected" &&
+                            !request.owner_escalated_at
+                    ).length,
+                    accountantRejected: accountantRequests.filter(
+                        (request) =>
+                            request.status !== "pending_accountant" &&
+                            (request.status === "rejected" ||
+                                Boolean(request.owner_escalated_at))
+                    ).length,
+                    accountantAll: accountantRequests.length,
+                    awaitingReceipt: requests.filter(
+                        (request) => request.status === "approved"
+                    ).length,
+                    receiptIssues: requests.filter(
+                        (request) =>
+                            request.status === "receipt_issue" ||
+                            (Boolean(request.receipt_issue_reason) &&
+                                !request.receipt_issue_resolved_at &&
+                                request.status !== "received")
+                    ).length,
+                    recentlyReceived: requests.filter(
+                        (request) => request.status === "received"
+                    ).length,
+                    needsAttention: requests.filter((request) =>
+                        [
+                            "rejected",
+                            "receipt_issue",
+                            "escalated_owner",
+                        ].includes(request.status) ||
+                        (Boolean(request.receipt_issue_reason) &&
+                            !request.receipt_issue_resolved_at &&
+                            request.status !== "received")
+                    ).length,
+                    awaitingAccountant: requests.filter(
+                        (request) => request.status === "pending_accountant"
+                    ).length,
+                    recentlyCompleted: requests.filter(
+                        (request) => request.status === "received"
+                    ).length,
+                });
+            }
+
+            if (["storekeeper", "owner"].includes(data.role)) {
+                const { count, error: inventoryError } = await supabase
+                    .from("items")
+                    .select("id", { count: "exact", head: true });
+
+                if (inventoryError) {
                     console.error(
-                        "Error loading owner workflow counts:",
-                        requestsError
+                        "Error loading inventory item count:",
+                        inventoryError
                     );
                 } else {
-                    const statuses = (requestData ?? []) as { status: string }[];
-
-                    setOwnerCounts({
-                        needsAttention: statuses.filter((request) =>
-                            ["rejected", "receipt_issue", "cancelled"].includes(
-                                request.status
-                            )
-                        ).length,
-                        awaitingAccountant: statuses.filter(
-                            (request) => request.status === "pending_accountant"
-                        ).length,
-                        awaitingReceipt: statuses.filter(
-                            (request) => request.status === "approved"
-                        ).length,
-                        recentlyCompleted: statuses.filter(
-                            (request) => request.status === "received"
-                        ).length,
-                    });
+                    setInventoryItemCount(count ?? 0);
                 }
             }
 
@@ -127,108 +214,105 @@ export default function DashboardPage() {
                 <div className="mt-10 grid gap-6 sm:grid-cols-2">
                     {profile?.role === "procurement" && (
                         <>
-                            <a
+                            <WorkflowWidget
+                                href="/procurement?tab=active"
+                                title="Active"
+                                count={workflowCounts.procurementActive ?? 0}
+                                description="Requests moving through the workflow"
+                            />
+                            <WorkflowWidget
+                                href="/procurement?tab=rejected"
+                                title="Rejected"
+                                count={workflowCounts.procurementRejected ?? 0}
+                                description="Requests to modify or escalate"
+                            />
+                            <WorkflowWidget
+                                href="/procurement?tab=completed"
+                                title="Completed"
+                                count={workflowCounts.procurementCompleted ?? 0}
+                                description="Requests received into inventory"
+                            />
+                            <WorkflowWidget
+                                href="/procurement?tab=all"
+                                title="All Requests"
+                                count={workflowCounts.procurementAll ?? 0}
+                                description="Every request you have submitted"
+                            />
+                            <Link
                                 href="/procurement/new"
                                 className="surface-card interactive-card p-7 lg:p-8"
                             >
                                 <h2 className="text-xl font-semibold">
                                     New Purchase Request
                                 </h2>
-
                                 <p className="text-muted mt-2">
                                     Submit items for accountant approval
                                 </p>
-                            </a>
-
-                            <a
-                                href="/procurement"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    My Requests
-                                </h2>
-
-                                <p className="text-muted mt-2">
-                                    View your submitted requests
-                                </p>
-                            </a>
+                            </Link>
                         </>
                     )}
 
                     {profile?.role === "accountant" && (
                         <>
-                            <Link
-                                href="/accountant/requests"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Purchase Approvals
-                                </h2>
-
-                                <p className="text-muted mt-2">
-                                    Review procurement requests
-                                </p>
-                            </Link>
-
-                            <Link
-                                href="/accountant/approvals"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Approval History
-                                </h2>
-
-                                <p className="text-muted mt-2">
-                                    View requests you have reviewed
-                                </p>
-                            </Link>
+                            <WorkflowWidget
+                                href="/accountant/requests?tab=pending"
+                                title="Pending"
+                                count={workflowCounts.accountantPending ?? 0}
+                                description="Requests waiting for your decision"
+                            />
+                            <WorkflowWidget
+                                href="/accountant/requests?tab=approved"
+                                title="Approved"
+                                count={workflowCounts.accountantApproved ?? 0}
+                                description="Requests you approved"
+                            />
+                            <WorkflowWidget
+                                href="/accountant/requests?tab=rejected"
+                                title="Rejected"
+                                count={workflowCounts.accountantRejected ?? 0}
+                                description="Requests you rejected"
+                            />
+                            <WorkflowWidget
+                                href="/accountant/requests?tab=all"
+                                title="All Requests"
+                                count={workflowCounts.accountantAll ?? 0}
+                                description="Pending and reviewed requests"
+                            />
                         </>
                     )}
 
                     {profile?.role === "storekeeper" && (
                         <>
-                            <Link
-                                href="/storekeeper/receipts"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Incoming Stock
-                                </h2>
+                            <WorkflowWidget
+                                href="/storekeeper/receipts?tab=awaiting"
+                                title="Awaiting Receipt"
+                                count={workflowCounts.awaitingReceipt ?? 0}
+                                description="Approved requests ready to check"
+                            />
+                            <WorkflowWidget
+                                href="/storekeeper/receipts?tab=issues"
+                                title="Receipt Issues"
+                                count={workflowCounts.receiptIssues ?? 0}
+                                description="Reported mismatches awaiting resolution"
+                            />
+                            <WorkflowWidget
+                                href="/storekeeper/receipts?tab=received"
+                                title="Recently Received"
+                                count={workflowCounts.recentlyReceived ?? 0}
+                                description="Requests added to inventory"
+                            />
 
-                                <p className="text-muted mt-2">
-                                    Verify approved purchases
-                                </p>
-                            </Link>
-
-                            <a
+                            <WorkflowWidget
                                 href="/inventory"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Inventory
-                                </h2>
-
-                                <p className="text-muted mt-2">
-                                    View current hotel stock
-                                </p>
-                            </a>
+                                title="Inventory"
+                                count={inventoryItemCount}
+                                description="Items currently tracked in stock"
+                            />
                         </>
                     )}
 
                     {profile?.role === "owner" && (
                         <>
-                            <Link
-                                href="/owner"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Owner Overview
-                                </h2>
-                                <p className="text-muted mt-2">
-                                    View the complete stock-in workflow
-                                </p>
-                            </Link>
-
                             <Link
                                 href="/owner/needs-attention"
                                 className="surface-card interactive-card p-7 lg:p-8"
@@ -237,10 +321,10 @@ export default function DashboardPage() {
                                     Needs Attention
                                 </h2>
                                 <p className="mt-3 text-3xl font-semibold">
-                                    {ownerCounts.needsAttention}
+                                    {workflowCounts.needsAttention ?? 0}
                                 </p>
                                 <p className="text-muted mt-1 text-sm">
-                                    Rejected requests and receipt issues
+                                    Escalations, rejections, and receipt issues
                                 </p>
                             </Link>
 
@@ -252,7 +336,7 @@ export default function DashboardPage() {
                                     Awaiting Accountant
                                 </h2>
                                 <p className="mt-3 text-3xl font-semibold">
-                                    {ownerCounts.awaitingAccountant}
+                                    {workflowCounts.awaitingAccountant ?? 0}
                                 </p>
                                 <p className="text-muted mt-1 text-sm">
                                     Requests ready for approval
@@ -267,7 +351,7 @@ export default function DashboardPage() {
                                     Awaiting Receipt
                                 </h2>
                                 <p className="mt-3 text-3xl font-semibold">
-                                    {ownerCounts.awaitingReceipt}
+                                    {workflowCounts.awaitingReceipt ?? 0}
                                 </p>
                                 <p className="text-muted mt-1 text-sm">
                                     Approved requests ready to receive
@@ -282,7 +366,7 @@ export default function DashboardPage() {
                                     Recently Completed
                                 </h2>
                                 <p className="mt-3 text-3xl font-semibold">
-                                    {ownerCounts.recentlyCompleted}
+                                    {workflowCounts.recentlyCompleted ?? 0}
                                 </p>
                                 <p className="text-muted mt-1 text-sm">
                                     Received purchase requests
@@ -302,18 +386,12 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
 
-                            <Link
+                            <WorkflowWidget
                                 href="/inventory"
-                                className="surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    Inventory
-                                </h2>
-
-                                <p className="text-muted mt-2">
-                                    View current hotel stock
-                                </p>
-                            </Link>
+                                title="Inventory"
+                                count={inventoryItemCount}
+                                description="Items currently tracked in stock"
+                            />
                         </>
                     )}
                 </div>
