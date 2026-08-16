@@ -364,11 +364,19 @@ export default function NewProcurementRequestPage() {
         if (requestError || requestId === null) {
             console.error(
                 "Error creating procurement request:",
-                requestError
+                JSON.stringify(requestError)
             );
 
+            const databaseMessage = requestError?.message ?? "";
+
             setErrorMessage(
-                "Could not create the purchase request."
+                databaseMessage.includes("invalid purchase-unit option")
+                    ? "This purchase type has not been enabled in the database yet."
+                    : databaseMessage.includes("inventory items could not be found")
+                      ? "One of the selected items no longer exists. Refresh and try again."
+                      : databaseMessage.includes("Only Procurement or Owner")
+                        ? "Only Procurement or the Owner can create purchase requests."
+                        : "Could not create the purchase request. Please try again."
             );
 
             setSubmitting(false);
