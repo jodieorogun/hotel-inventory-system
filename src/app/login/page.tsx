@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -83,18 +84,38 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="app-page flex items-center justify-center">
-            <div className="w-full max-w-lg">
-                <div className="mb-8 text-center">
-                    <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
-                        JORO Inventory
-                    </p>
+        <main className="app-page relative flex items-center justify-center overflow-hidden">
+            <div
+                aria-hidden="true"
+                className="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-[var(--accent-soft)] opacity-80 blur-2xl sm:h-96 sm:w-96"
+            />
+            <div
+                aria-hidden="true"
+                className="absolute -bottom-20 -left-16 h-48 w-48 rotate-12 rounded-[3.5rem] border-[1.5rem] border-[var(--accent-soft)] sm:h-64 sm:w-64"
+            />
 
-                    <h1 className="page-title">Welcome back</h1>
+            <div className="relative w-full max-w-lg">
+                <div className="mb-7 text-center">
+                    <div className="relative mx-auto h-24 w-full max-w-64 sm:h-28">
+                        <Image
+                            src="/brand/joro-logo-light.png"
+                            alt="JORO Inventory"
+                            fill
+                            priority
+                            sizes="256px"
+                            className="object-contain dark:hidden"
+                        />
+                        <Image
+                            src="/brand/joro-logo-dark.png"
+                            alt="JORO Inventory"
+                            fill
+                            priority
+                            sizes="256px"
+                            className="hidden object-contain dark:block"
+                        />
+                    </div>
 
-                    <p className="page-description mt-3">
-                        Sign in to access your inventory workspace.
-                    </p>
+                    <h1 className="page-title mt-5">Welcome</h1>
                 </div>
 
                 <form
