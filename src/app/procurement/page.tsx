@@ -551,7 +551,7 @@ export default function ProcurementRequestsPage() {
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="page-title">My Requests</h1>
+                        <h1 className="page-title">My Purchases</h1>
 
                         <p className="page-description mt-2">
                             Track your submitted purchase requests.

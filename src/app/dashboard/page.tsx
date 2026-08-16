@@ -771,6 +771,13 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
+                                href="/procurement?tab=all"
+                                title="My Purchases"
+                                count={workflowCounts.procurementAll ?? 0}
+                                description="Purchase requests you created"
+                                tone="active"
+                            />
+                            <WorkflowWidget
                                 href="/owner/awaiting-accountant"
                                 title="Awaiting Accountant"
                                 count={workflowCounts.awaitingAccountant ?? 0}
