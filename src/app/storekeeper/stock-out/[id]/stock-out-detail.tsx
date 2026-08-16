@@ -439,12 +439,12 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
             </div>
 
             {rejecting && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div role="dialog" aria-modal="true" aria-labelledby="reject-stock-title" className="surface-card w-full max-w-lg p-6">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+                    <div role="dialog" aria-modal="true" aria-labelledby="reject-stock-title" className="surface-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto p-6">
                         <h2 id="reject-stock-title" className="text-xl font-semibold">Escalate to Owner</h2>
                         <p className="text-muted mt-2 text-sm">Explain why the request cannot currently be issued.</p>
                         <textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} rows={4} className="form-control mt-5" placeholder="Reason for escalation" autoFocus />
-                        <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
                             <button type="button" onClick={() => setRejecting(false)} disabled={updating} className="secondary-action">Cancel</button>
                             <button type="button" onClick={escalateRequest} disabled={updating || !rejectionReason.trim()} className="primary-action">{updating ? "Escalating..." : "Escalate Request"}</button>
                         </div>

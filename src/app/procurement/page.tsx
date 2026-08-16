@@ -752,7 +752,7 @@ export default function ProcurementRequestsPage() {
 
             {editingRequest && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
                     role="presentation"
                 >
                     <div
@@ -894,7 +894,7 @@ export default function ProcurementRequestsPage() {
                             ))}
                         </div>
 
-                        <div className="mt-6 grid grid-cols-2 gap-3">
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
                             <button
                                 type="button"
                                 onClick={() => setEditingRequest(null)}

@@ -96,7 +96,7 @@ function WorkflowWidget({
                 aria-hidden="true"
                 className={`absolute inset-x-0 top-0 h-1 ${toneDetails.bar}`}
             />
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
                 <h2 className="text-xl font-semibold">{title}</h2>
                 <span className="text-muted flex shrink-0 items-center gap-2 text-xs">
                     <span
@@ -135,7 +135,7 @@ function StockCheckWidget({
                         : "bg-emerald-500 dark:bg-emerald-400"
                 }`}
             />
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
                 <h2 className="text-xl font-semibold">Stock Check</h2>
                 <span className="text-muted flex shrink-0 items-center gap-2 text-xs">
                     <span
@@ -173,7 +173,7 @@ function DashboardSection({
     children: ReactNode;
 }) {
     return (
-        <section className="mt-10">
+        <section className="mt-8 sm:mt-10">
             <div className="mb-4 sm:flex sm:items-end sm:justify-between sm:gap-6">
                 <h2 className="text-lg font-semibold tracking-[-0.02em]">
                     {title}
@@ -182,7 +182,7 @@ function DashboardSection({
                     {description}
                 </p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2">{children}</div>
+            <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">{children}</div>
         </section>
     );
 }
@@ -467,7 +467,7 @@ export default function DashboardPage() {
                         <p className="text-sm font-medium capitalize text-[var(--muted-strong)]">
                             {formatStaffRole(profile?.role ?? "staff")} workspace
                         </p>
-                        <h1 className="mt-2 max-w-4xl text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.95] tracking-[-0.055em]">
+                        <h1 className="mt-2 max-w-4xl text-[clamp(2.1rem,11vw,4.75rem)] font-semibold leading-[1] tracking-[-0.05em] sm:leading-[0.95] sm:tracking-[-0.055em]">
                             {greetings[greetingIndex]},{" "}
                             <span className="text-[var(--accent)]">
                                 {profile?.name}
@@ -478,9 +478,9 @@ export default function DashboardPage() {
 
                 <Link
                     href={reviewHref}
-                    className="dashboard-widget surface-card interactive-card flex items-center gap-5 p-6 sm:gap-7 sm:p-7"
+                    className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
                 >
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-2xl font-semibold text-[var(--accent)] sm:h-16 sm:w-16 sm:text-3xl">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-xl font-semibold text-[var(--accent)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl">
                         {reviewCount}
                     </span>
 
@@ -692,7 +692,7 @@ export default function DashboardPage() {
 
                 {profile?.role === "owner" && (
                     <>
-                        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+                        <div className="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
                             <WorkflowWidget
                                 href="/owner/needs-attention"
                                 title="Needs Attention"

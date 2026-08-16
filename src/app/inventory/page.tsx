@@ -113,7 +113,52 @@ export default function InventoryPage() {
                     />
                 )}
 
-                <div className="surface-card overflow-x-auto">
+                <div className="grid gap-4 sm:hidden">
+                    {filteredItems.map((item) => (
+                        <article key={item.id} className="surface-card p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h2 className="font-semibold">{item.name}</h2>
+                                    <p className="text-muted mt-1 text-sm">
+                                        {item.category}
+                                    </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-sm font-semibold text-[var(--accent)]">
+                                    {item.current_quantity} {item.unit}
+                                </span>
+                            </div>
+
+                            <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 text-sm">
+                                <div>
+                                    <dt className="text-muted">Stock unit</dt>
+                                    <dd className="mt-1 font-medium">{item.unit}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-muted">Purchased as</dt>
+                                    <dd className="mt-1 font-medium">
+                                        {hasPurchaseConversion(
+                                            item.unit,
+                                            item.purchase_unit,
+                                            Number(item.units_per_purchase_unit)
+                                        )
+                                            ? `1 ${item.purchase_unit} = ${item.units_per_purchase_unit} ${item.unit}`
+                                            : item.purchase_unit}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </article>
+                    ))}
+
+                    {filteredItems.length === 0 && (
+                        <div className="surface-card p-7 text-center">
+                            <p className="text-muted">
+                                No inventory items match that search.
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="surface-card hidden overflow-x-auto sm:block">
                     <table className="w-full min-w-150 text-[var(--foreground)]">
                         <thead className="bg-[var(--surface-subtle)] text-[var(--foreground)]">
                             <tr>
