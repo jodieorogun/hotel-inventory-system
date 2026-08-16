@@ -331,7 +331,7 @@ export default function NewProcurementRequestPage() {
 
         if (hasInvalidNumbers) {
             setErrorMessage(
-                "Quantity must be a whole number above 0, and unit price cannot be negative."
+                "Enter a valid purchase type and pack size. Quantity must be a whole number above 0, and price cannot be negative."
             );
             return;
         }

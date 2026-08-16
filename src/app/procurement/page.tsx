@@ -9,6 +9,7 @@ import RequestListFilters, {
     DateFilterValue,
     matchesDateFilter,
 } from "@/components/request-list-filters";
+import { isValidUnitLabel } from "@/lib/item-validation";
 import { supabase } from "@/lib/supabase";
 import {
     formatQuantity,
@@ -380,13 +381,13 @@ export default function ProcurementRequestsPage() {
                 (line) =>
                     line.quantity <= 0 ||
                     line.unitPrice < 0 ||
-                    !line.purchaseUnit.trim() ||
+                    !isValidUnitLabel(line.purchaseUnit) ||
                     !Number.isInteger(line.unitsPerPurchaseUnit) ||
                     line.unitsPerPurchaseUnit < 1
             )
         ) {
             setErrorMessage(
-                "Every item needs a quantity above zero and a valid unit price."
+                "Every item needs a valid purchase type, pack size, quantity, and unit price."
             );
             return;
         }
