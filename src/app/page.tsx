@@ -17,8 +17,8 @@ export default function HomePage() {
                 </h1>
 
                 <p className="page-description mx-auto mt-5 max-w-xl text-lg leading-8">
-                    A focused workspace for procurement, accounting, and hotel
-                    store operations.
+                    A focused workspace for purchasing, stock control, and
+                    everyday hotel store requests.
                 </p>
 
                 <Link href="/login" className="primary-action mt-8">

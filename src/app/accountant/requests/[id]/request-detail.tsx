@@ -667,6 +667,42 @@ export default function RequestDetail({
         router.refresh();
     }
 
+    async function voidEscalatedRequest() {
+        if (
+            !request ||
+            request.status !== "escalated_owner" ||
+            viewerRole !== "owner" ||
+            ownerAction
+        ) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Void escalated Purchase Request #${request.id}?\n\nThe request will be permanently closed and no stock will be added.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setOwnerAction("void");
+        setErrorMessage("");
+
+        const { error } = await supabase.rpc("owner_void_escalated_request", {
+            target_request_id: request.id,
+        });
+
+        if (error) {
+            console.error("Error voiding escalated request:", error);
+            setErrorMessage("Could not void this escalated request.");
+            setOwnerAction(null);
+            return;
+        }
+
+        router.push("/dashboard");
+        router.refresh();
+    }
+
     function openRejectDialog() {
         setRejectionReason("");
         setRejectionError("");
@@ -722,6 +758,8 @@ export default function RequestDetail({
     const isPending =
         request.status === "pending_accountant" ||
         (viewerRole === "owner" && request.status === "escalated_owner");
+    const isOwnerEscalation =
+        viewerRole === "owner" && request.status === "escalated_owner";
     const isOwnerRejected =
         viewerRole === "owner" && request.status === "rejected";
 
@@ -953,16 +991,28 @@ export default function RequestDetail({
                     <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         <button
                             type="button"
-                            onClick={openRejectDialog}
-                            disabled={updating !== null}
+                            onClick={
+                                isOwnerEscalation
+                                    ? voidEscalatedRequest
+                                    : openRejectDialog
+                            }
+                            disabled={
+                                updating !== null || ownerAction !== null
+                            }
                             className="secondary-action border-[var(--danger-border)] text-[var(--danger)] hover:border-[var(--danger)] hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-55"
                         >
-                            Reject Request
+                            {isOwnerEscalation
+                                ? ownerAction === "void"
+                                    ? "Voiding..."
+                                    : "Void Request"
+                                : "Reject Request"}
                         </button>
                         <button
                             type="button"
                             onClick={() => updateRequestStatus("approved")}
-                            disabled={updating !== null}
+                            disabled={
+                                updating !== null || ownerAction !== null
+                            }
                             className="primary-action"
                         >
                             {updating === "approved"

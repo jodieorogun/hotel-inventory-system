@@ -8,6 +8,7 @@ A Next.js and Supabase application for the hotel purchase-request and stock-in w
 - `accountant` approves or rejects requests.
 - `storekeeper` records actual quantities received and confirms stock receipt.
 - `owner` can act across the full workflow and resolve escalations or receipt issues.
+- `housekeeper` requests consumable stock from the Storekeeper.
 
 ## Local setup
 
@@ -36,6 +37,8 @@ The frontend expects these main tables:
 - `purchase_requests`
 - `purchase_requests_items`
 - `purchase_request_events`
+- `stock_out_requests`
+- `stock_out_request_items`
 
 Each `items` row uses `unit` as the stock unit, `purchase_unit` as the unit
 Procurement orders, and `units_per_purchase_unit` as the receipt conversion.
@@ -57,6 +60,12 @@ It also calls these database functions:
 - `owner_resubmit_rejected_request`
 - `owner_approve_rejected_request`
 - `owner_void_rejected_request`
+- `owner_void_escalated_request`
+- `create_stock_out_request`
+- `confirm_stock_out_request`
+- `escalate_stock_out_request`
+- `return_stock_out_to_storekeeper`
+- `owner_void_stock_out_request`
 
 The Supabase schema, RLS policies, triggers, and functions must be applied through the Supabase SQL Editor before the matching frontend is deployed. SQL is intentionally not stored in this repository.
 
