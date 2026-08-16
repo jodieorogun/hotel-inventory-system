@@ -67,7 +67,10 @@ function eventLink(event: AuditEvent) {
     }
 
     if (event.item_id) {
-        return { href: "/inventory", label: `Inventory Item #${event.item_id}` };
+        return {
+            href: `/inventory/${event.item_id}`,
+            label: `Inventory Item #${event.item_id}`,
+        };
     }
 
     return null;

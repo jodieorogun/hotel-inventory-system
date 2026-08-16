@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import ListSearch from "@/components/list-search";
@@ -115,7 +116,11 @@ export default function InventoryPage() {
 
                 <div className="grid gap-4 sm:hidden">
                     {filteredItems.map((item) => (
-                        <article key={item.id} className="surface-card p-5">
+                        <Link
+                            key={item.id}
+                            href={`/inventory/${item.id}`}
+                            className="surface-card interactive-card block p-5"
+                        >
                             <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                     <h2 className="font-semibold">{item.name}</h2>
@@ -146,7 +151,10 @@ export default function InventoryPage() {
                                     </dd>
                                 </div>
                             </dl>
-                        </article>
+                            <span className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)]">
+                                View stock history →
+                            </span>
+                        </Link>
                     ))}
 
                     {filteredItems.length === 0 && (
@@ -181,6 +189,10 @@ export default function InventoryPage() {
                                 <th className="px-7 py-5 text-left">
                                     Purchased As
                                 </th>
+
+                                <th className="px-7 py-5 text-right">
+                                    History
+                                </th>
                             </tr>
                         </thead>
 
@@ -191,7 +203,12 @@ export default function InventoryPage() {
                                     className="data-row"
                                 >
                                     <td className="px-7 py-5 font-medium text-[var(--foreground)]">
-                                        {item.name}
+                                        <Link
+                                            href={`/inventory/${item.id}`}
+                                            className="text-[var(--foreground)] hover:text-[var(--accent)] hover:underline"
+                                        >
+                                            {item.name}
+                                        </Link>
                                     </td>
 
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
@@ -215,12 +232,21 @@ export default function InventoryPage() {
                                             ? `1 ${item.purchase_unit} = ${item.units_per_purchase_unit} ${item.unit}`
                                             : "—"}
                                     </td>
+
+                                    <td className="px-7 py-5 text-right">
+                                        <Link
+                                            href={`/inventory/${item.id}`}
+                                            className="font-semibold text-[var(--accent)] hover:underline"
+                                        >
+                                            View →
+                                        </Link>
+                                    </td>
                                 </tr>
                             ))}
                             {filteredItems.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="text-muted px-7 py-10 text-center"
                                     >
                                         No inventory items match that search.
