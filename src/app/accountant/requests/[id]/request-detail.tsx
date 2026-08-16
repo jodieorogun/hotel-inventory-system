@@ -637,7 +637,7 @@ export default function RequestDetail({
 
         const confirmed = window.confirm(
             action === "approve"
-                ? `Approve rejected Purchase Request #${request.id} as the Owner?\n\nIt will move to Awaiting Receipt.`
+                ? `Approve rejected Purchase Request #${request.id} as the Owner?\n\nIt will move to Ready to Receive.`
                 : `Void rejected Purchase Request #${request.id}?\n\nNo stock will be added and this cannot be undone.`
         );
 

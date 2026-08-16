@@ -553,7 +553,7 @@ export default function DashboardPage() {
 
                 {profile?.role === "procurement" && (
                     <DashboardSection
-                        title="Purchase requests"
+                        title="Purchase Requests"
                         description="Create requests and track them from approval to receipt"
                     >
                         <Link
@@ -600,7 +600,7 @@ export default function DashboardPage() {
 
                 {profile?.role === "accountant" && (
                     <DashboardSection
-                        title="Purchase requests"
+                        title="Purchase Requests"
                         description="Review requests and find earlier decisions"
                     >
                             <WorkflowWidget
@@ -765,7 +765,7 @@ export default function DashboardPage() {
                         </DashboardSection>
 
                         <DashboardSection
-                            title="Purchase requests"
+                            title="Purchase Requests"
                             description="Create purchases and follow their approval progress"
                         >
                             <Link
