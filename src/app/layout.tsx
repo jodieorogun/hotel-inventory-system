@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hotel Inventory",
-  description: "Hotel procurement and inventory management",
+  title: "JORO Inventory",
+  description: "Hotel stock and inventory management",
 };
 
 const themeScript = `

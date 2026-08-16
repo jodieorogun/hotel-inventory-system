@@ -87,13 +87,13 @@ export default function LoginPage() {
             <div className="w-full max-w-lg">
                 <div className="mb-8 text-center">
                     <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
-                        Hotel operations
+                        JORO Inventory
                     </p>
 
                     <h1 className="page-title">Welcome back</h1>
 
                     <p className="page-description mt-3">
-                        Sign in to manage procurement and hotel inventory.
+                        Sign in to access your inventory workspace.
                     </p>
                 </div>
 
