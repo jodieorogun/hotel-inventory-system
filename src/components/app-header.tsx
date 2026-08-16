@@ -157,7 +157,7 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
         <header
             className={`app-header ${
                 pathname === "/dashboard" ? "dashboard-header" : ""
-            }`}
+            } ${menuOpen ? "relative z-50" : ""}`}
         >
             {pathname === "/dashboard" ? (
                 children ?? <span aria-hidden="true" />
@@ -170,7 +170,7 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                 </Link>
             )}
 
-            <div ref={menuRef} className="relative">
+            <div ref={menuRef} className="relative z-50 shrink-0">
                 <button
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
@@ -207,7 +207,7 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                 {menuOpen && (
                     <div
                         role="menu"
-                        className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+                        className="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-6rem)] w-[min(18rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
                     >
                         <div className="border-b border-[var(--border)] px-4 py-4">
                             <p className="truncate font-semibold text-[var(--foreground)]">

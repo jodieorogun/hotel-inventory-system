@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -13,16 +14,28 @@ export default function HomePage() {
             />
 
             <div className="relative w-full max-w-xl text-center">
-                <h1 className="leading-none">
-                    <span className="block text-[clamp(4.75rem,19vw,9rem)] font-semibold tracking-[-0.085em] text-[var(--foreground)]">
-                        JOR<span className="text-[var(--accent)]">O</span>
-                    </span>
-                    <span className="mt-3 block text-[clamp(1rem,4vw,1.45rem)] font-medium uppercase tracking-[0.48em] text-[var(--muted-strong)]">
-                        Inventory
-                    </span>
-                </h1>
+                <h1 className="sr-only">JORO Inventory</h1>
 
-                <Link href="/login" className="primary-action mt-12 min-w-40">
+                <div className="relative mx-auto h-44 w-full sm:h-56">
+                    <Image
+                        src="/brand/joro-logo-light.png"
+                        alt=""
+                        fill
+                        priority
+                        sizes="(max-width: 640px) calc(100vw - 40px), 576px"
+                        className="object-contain dark:hidden"
+                    />
+                    <Image
+                        src="/brand/joro-logo-dark.png"
+                        alt=""
+                        fill
+                        priority
+                        sizes="(max-width: 640px) calc(100vw - 40px), 576px"
+                        className="hidden object-contain dark:block"
+                    />
+                </div>
+
+                <Link href="/login" className="primary-action mt-8 min-w-40">
                     Sign In
                 </Link>
             </div>
