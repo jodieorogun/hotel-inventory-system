@@ -17,7 +17,17 @@ Create `.env.local` with:
 ```text
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-secret-or-service-role-key
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` accepts the current Supabase secret key
+(`sb_secret_...`) or the legacy service-role key. It is used only by the
+protected Owner User Management API. Never prefix it with `NEXT_PUBLIC_` or
+expose it in browser code. Find it in Supabase project settings under API keys.
+
+Add `http://localhost:3000/setup-password` and the matching production URL to
+the Supabase Auth redirect allow list so invitation and password-reset emails
+return to the password setup page.
 
 Then run:
 
@@ -73,6 +83,7 @@ The Supabase schema, RLS policies, triggers, and functions must be applied throu
 
 ```bash
 npm run lint
+npm run test
 npm run build
 ```
 

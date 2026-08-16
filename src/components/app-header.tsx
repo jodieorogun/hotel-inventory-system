@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { formatStaffRole } from "@/lib/staff-roles";
 
 type UserProfile = {
     name: string;
@@ -14,7 +15,7 @@ type UserProfile = {
 type ThemePreference = "light" | "dark" | "system";
 
 function formatRole(role: string) {
-    return role.replaceAll("_", " ");
+    return formatStaffRole(role);
 }
 
 function getInitials(name: string) {
@@ -265,6 +266,28 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                                 className="focus-ring block px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
                             >
                                 Dashboard
+                            </Link>
+                        )}
+
+                        {profile?.role === "owner" && pathname !== "/owner/users" && (
+                            <Link
+                                href="/owner/users"
+                                role="menuitem"
+                                onClick={() => setMenuOpen(false)}
+                                className="focus-ring block border-t border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                            >
+                                Manage Users
+                            </Link>
+                        )}
+
+                        {pathname !== "/account/password" && (
+                            <Link
+                                href="/account/password"
+                                role="menuitem"
+                                onClick={() => setMenuOpen(false)}
+                                className="focus-ring block border-t border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--muted-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                            >
+                                Change Password
                             </Link>
                         )}
 

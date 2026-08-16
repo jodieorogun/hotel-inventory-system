@@ -138,15 +138,21 @@ export default function AccountantRequestsPage() {
                 return;
             }
 
-            const { data: requestData, error: requestsError } = await supabase
+            let requestQuery = supabase
                 .from("purchase_requests")
                 .select(
                     "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, accountant_decision"
                 )
-                .or(
-                    `status.eq.pending_accountant,accountant_approved_by.eq.${user.id}`
-                )
                 .order("created_at", { ascending: false });
+
+            if (profile.role === "accountant") {
+                requestQuery = requestQuery.or(
+                    `status.eq.pending_accountant,accountant_approved_by.eq.${user.id}`
+                );
+            }
+
+            const { data: requestData, error: requestsError } =
+                await requestQuery;
 
             if (requestsError) {
                 console.error("Error loading purchase requests:", requestsError);

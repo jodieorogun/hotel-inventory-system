@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
 import { formatQuantity } from "@/lib/units";
+import { loadVisibleUserNames } from "@/lib/user-names";
 
 type StockRequest = {
     id: number;
@@ -118,17 +119,17 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
             const userIds = [requestRow.requested_by, requestRow.storekeeper_confirmed_by].filter(
                 (id): id is string => Boolean(id)
             );
-            const [linesResult, usersResult] = await Promise.all([
+            const [linesResult, usersById] = await Promise.all([
                 supabase
                     .from("stock_out_request_items")
                     .select("id, item_id, requested_quantity, issued_quantity")
                     .eq("request_id", requestRow.id)
                     .order("id"),
-                supabase.from("users").select("id, name").in("id", userIds),
+                loadVisibleUserNames(userIds),
             ]);
 
-            if (linesResult.error || usersResult.error) {
-                console.error("Error loading stock-out details:", linesResult.error ?? usersResult.error);
+            if (linesResult.error) {
+                console.error("Error loading stock-out details:", linesResult.error);
                 if (!ignore) {
                     setErrorMessage("Could not load the requested items.");
                     setLoading(false);
@@ -147,7 +148,6 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
                 console.error("Error loading current inventory:", itemError);
             }
 
-            const usersById = new Map((usersResult.data ?? []).map((person) => [person.id, person.name]));
             const itemsById = new Map((itemData ?? []).map((item) => [item.id, item]));
             const formattedRequest: StockRequest = {
                 id: requestRow.id,

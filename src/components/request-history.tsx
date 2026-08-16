@@ -53,7 +53,7 @@ export default function RequestHistory({
 
     return (
         <section className="surface-card mt-8 p-6 lg:p-7">
-            <h2 className="text-lg font-semibold">Request History</h2>
+            <h2 className="text-lg font-semibold">Activity / Audit Trail</h2>
 
             <ol className="mt-5 space-y-5">
                 {orderedEntries.map(([eventKey, entry], index) => (

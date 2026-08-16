@@ -8,6 +8,11 @@ import ListSearch from "@/components/list-search";
 import { supabase } from "@/lib/supabase";
 import { formatStockCheckQuantity } from "@/lib/stock-checks";
 import { pluralizeUnit } from "@/lib/units";
+import {
+    hasDuplicateItemName,
+    isValidUnitLabel,
+    normalizeItemName,
+} from "@/lib/item-validation";
 
 type InventoryItem = {
     id: number;
@@ -40,7 +45,7 @@ function isDecimalInput(value: string) {
 }
 
 function isValidConversion(value: string) {
-    return isValidCount(value, false) && Number(value) >= 1;
+    return Number.isInteger(Number(value)) && Number(value) >= 1;
 }
 
 export default function NewStockCheckPage() {
@@ -130,8 +135,8 @@ export default function NewStockCheckPage() {
         (item) =>
             item.name.trim() &&
             item.category.trim() &&
-            item.unit.trim() &&
-            item.purchaseUnit.trim() &&
+            isValidUnitLabel(item.unit) &&
+            isValidUnitLabel(item.purchaseUnit) &&
             isValidConversion(item.unitsPerPurchaseUnit) &&
             isValidCount(item.physicalQuantity, false)
     );
@@ -198,15 +203,15 @@ export default function NewStockCheckPage() {
             return;
         }
 
-        const existingNames = new Set(
-            items.map((item) => item.name.trim().toLowerCase())
-        );
+        const existingNames = items.map((item) => item.name);
         const unlistedNames = completeUnlistedItems.map((item) =>
-            item.name.trim().toLowerCase()
+            normalizeItemName(item.name)
         );
 
         if (
-            unlistedNames.some((name) => existingNames.has(name)) ||
+            completeUnlistedItems.some((item) =>
+                hasDuplicateItemName(existingNames, item.name)
+            ) ||
             new Set(unlistedNames).size !== unlistedNames.length
         ) {
             setErrorMessage(
@@ -476,7 +481,7 @@ export default function NewStockCheckPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="form-label" htmlFor={`unlisted-count-${item.id}`}>
+                                                <label className="form-label" htmlFor={`unlisted-purchase-unit-${item.id}`}>
                                                     Usual purchase unit
                                                 </label>
                                                 <input

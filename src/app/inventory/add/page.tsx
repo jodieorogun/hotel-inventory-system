@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
+import {
+    hasDuplicateItemName,
+    isValidUnitLabel,
+} from "@/lib/item-validation";
 
 export default function AddInventoryItemPage() {
     const router = useRouter();
@@ -16,6 +20,7 @@ export default function AddInventoryItemPage() {
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+    const [existingItemNames, setExistingItemNames] = useState<string[]>([]);
 
     useEffect(() => {
         let ignore = false;
@@ -51,7 +56,22 @@ export default function AddInventoryItemPage() {
                 return;
             }
 
+            const { data: inventoryItems, error: inventoryError } =
+                await supabase.from("items").select("name");
+
+            if (inventoryError) {
+                console.error("Error loading existing item names:", inventoryError);
+                if (!ignore) {
+                    setErrorMessage("Could not load the existing inventory items.");
+                    setLoading(false);
+                }
+                return;
+            }
+
             if (!ignore) {
+                setExistingItemNames(
+                    (inventoryItems ?? []).map((item) => item.name)
+                );
                 setLoading(false);
             }
         }
@@ -69,14 +89,42 @@ export default function AddInventoryItemPage() {
         setErrorMessage("");
         setSuccessMessage("");
 
+        const trimmedName = name.trim();
+        const trimmedUnit = unit.trim();
+        const trimmedPurchaseUnit = purchaseUnit.trim();
+        const conversion = Number(unitsPerPurchaseUnit);
+
+        if (
+            !isValidUnitLabel(trimmedUnit) ||
+            !isValidUnitLabel(trimmedPurchaseUnit)
+        ) {
+            setErrorMessage(
+                "Enter a valid stock unit and purchase unit, such as bottle, roll or pack."
+            );
+            setSubmitting(false);
+            return;
+        }
+
+        if (!Number.isInteger(conversion) || conversion < 1) {
+            setErrorMessage("Stock units in one purchase unit must be a whole number of at least 1.");
+            setSubmitting(false);
+            return;
+        }
+
+        if (hasDuplicateItemName(existingItemNames, trimmedName)) {
+            setErrorMessage(`${trimmedName} already exists in inventory.`);
+            setSubmitting(false);
+            return;
+        }
+
         const { error } = await supabase
             .from("items")
             .insert([{
-                name: name.trim(),
+                name: trimmedName,
                 category: category.trim(),
-                unit: unit.trim(),
-                purchase_unit: purchaseUnit.trim(),
-                units_per_purchase_unit: Number(unitsPerPurchaseUnit),
+                unit: trimmedUnit,
+                purchase_unit: trimmedPurchaseUnit,
+                units_per_purchase_unit: conversion,
                 current_quantity: 0,
             }]);
 
@@ -87,6 +135,7 @@ export default function AddInventoryItemPage() {
             return;
         }
 
+        setExistingItemNames((current) => [...current, trimmedName]);
         setName("");
         setCategory("");
         setUnit("");

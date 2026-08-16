@@ -10,7 +10,9 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
     const [signingIn, setSigningIn] = useState(false);
+    const [sendingReset, setSendingReset] = useState(false);
 
     async function handleLogin(
         event: React.FormEvent<HTMLFormElement>
@@ -23,6 +25,7 @@ export default function LoginPage() {
 
         setSigningIn(true);
         setErrorMessage("");
+        setSuccessMessage("");
 
         const { error } = await supabase.auth.signInWithPassword({
             email,
@@ -30,12 +33,53 @@ export default function LoginPage() {
         });
 
         if (error) {
-            setErrorMessage(error.message);
+            setErrorMessage(
+                error.code === "user_banned"
+                    ? "This account has been deactivated. Ask the Owner to reactivate it."
+                    : error.message
+            );
             setSigningIn(false);
             return;
         }
 
-        router.push("/dashboard");
+        router.replace("/dashboard");
+        router.refresh();
+    }
+
+    async function handlePasswordReset() {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+            setErrorMessage("Enter your email address first.");
+            return;
+        }
+
+        setSendingReset(true);
+
+        const { error } = await supabase.auth.resetPasswordForEmail(
+            normalizedEmail,
+            {
+                redirectTo: `${window.location.origin}/setup-password`,
+            }
+        );
+
+        if (error) {
+            console.error("Error sending password reset email:", error);
+            setErrorMessage(
+                error.message ||
+                    "We could not send the password reset email. Please try again."
+            );
+            setSendingReset(false);
+            return;
+        }
+
+        setSuccessMessage(
+            `Password reset instructions have been sent to ${normalizedEmail}.`
+        );
+        setSendingReset(false);
     }
 
     return (
@@ -104,8 +148,17 @@ export default function LoginPage() {
                     </div>
 
                     {errorMessage && (
-                        <p className="error-message">
+                        <p className="error-message" role="alert">
                             {errorMessage}
+                        </p>
+                    )}
+
+                    {successMessage && (
+                        <p
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                            role="status"
+                        >
+                            {successMessage}
                         </p>
                     )}
 
@@ -115,6 +168,17 @@ export default function LoginPage() {
                         className="primary-action w-full"
                     >
                         {signingIn ? "Signing In..." : "Sign In"}
+                    </button>
+
+                    <button
+                        type="button"
+                        disabled={signingIn || sendingReset}
+                        onClick={handlePasswordReset}
+                        className="text-muted block w-full text-center text-sm underline decoration-transparent underline-offset-4 transition hover:text-[var(--foreground)] hover:decoration-current disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {sendingReset
+                            ? "Sending password reset..."
+                            : "Forgot password?"}
                     </button>
                 </form>
             </div>

@@ -10,6 +10,7 @@ import {
     getNextStockCheckDate,
     isStockCheckDue,
 } from "@/lib/stock-checks";
+import { formatStaffRole } from "@/lib/staff-roles";
 
 type UserProfile = {
     name: string;
@@ -464,7 +465,7 @@ export default function DashboardPage() {
                 <AppHeader>
                     <div>
                         <p className="text-sm font-medium capitalize text-[var(--muted-strong)]">
-                            {profile?.role.replaceAll("_", " ")} workspace
+                            {formatStaffRole(profile?.role ?? "staff")} workspace
                         </p>
                         <h1 className="mt-2 max-w-4xl text-[clamp(2.5rem,6vw,4.75rem)] font-semibold leading-[0.95] tracking-[-0.055em]">
                             {greetings[greetingIndex]},{" "}
@@ -783,6 +784,30 @@ export default function DashboardPage() {
                                 description="Received purchase requests"
                                 tone="healthy"
                             />
+                        </DashboardSection>
+
+                        <DashboardSection
+                            title="Records"
+                            description="Review system activity and manage staff access"
+                        >
+                            <Link
+                                href="/owner/audit-trail"
+                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">Audit Trail</h2>
+                                <p className="text-muted mt-2">
+                                    See what changed, who changed it, and when
+                                </p>
+                            </Link>
+                            <Link
+                                href="/owner/users"
+                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">Users</h2>
+                                <p className="text-muted mt-2">
+                                    Add staff and manage their access
+                                </p>
+                            </Link>
                         </DashboardSection>
                     </>
                 )}
