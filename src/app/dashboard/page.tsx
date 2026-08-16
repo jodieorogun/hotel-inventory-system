@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
+import {
+    formatStockCheckDate,
+    getNextStockCheckDate,
+    isStockCheckDue,
+} from "@/lib/stock-checks";
 
 type UserProfile = {
     name: string;
@@ -18,6 +23,11 @@ type RequestSummary = {
     accountant_decision: "approved" | "rejected" | null;
     receipt_issue_reason: string | null;
     receipt_issue_resolved_at: string | null;
+};
+
+type StockOutSummary = {
+    status: string;
+    requested_by: string;
 };
 
 type WidgetTone = "attention" | "waiting" | "healthy" | "active" | "neutral";
@@ -101,6 +111,81 @@ function WorkflowWidget({
     );
 }
 
+function StockCheckWidget({
+    lastCompletedAt,
+}: {
+    lastCompletedAt: string | null;
+}) {
+    const due = isStockCheckDue(lastCompletedAt);
+    const nextCheckDate = lastCompletedAt
+        ? getNextStockCheckDate(lastCompletedAt)
+        : null;
+
+    return (
+        <Link
+            href="/owner/stock-checks"
+            className="dashboard-widget surface-card interactive-card relative overflow-hidden p-7 lg:p-8"
+        >
+            <span
+                aria-hidden="true"
+                className={`absolute inset-x-0 top-0 h-1 ${
+                    due
+                        ? "bg-amber-400 dark:bg-amber-300"
+                        : "bg-emerald-500 dark:bg-emerald-400"
+                }`}
+            />
+            <div className="flex items-start justify-between gap-4">
+                <h2 className="text-xl font-semibold">Stock Check</h2>
+                <span className="text-muted flex shrink-0 items-center gap-2 text-xs">
+                    <span
+                        aria-hidden="true"
+                        className={`h-2 w-2 rounded-full ${
+                            due
+                                ? "bg-amber-400 dark:bg-amber-300"
+                                : "bg-emerald-500 dark:bg-emerald-400"
+                        }`}
+                    />
+                    {due ? "Due" : "Up to date"}
+                </span>
+            </div>
+            <p className="mt-5 font-semibold">
+                {lastCompletedAt
+                    ? `Last checked ${formatStockCheckDate(lastCompletedAt)}`
+                    : "No stock checks completed"}
+            </p>
+            <p className="text-muted mt-1 text-sm">
+                {nextCheckDate
+                    ? `Next weekly check: ${formatStockCheckDate(nextCheckDate)}`
+                    : "The first stock check is due now"}
+            </p>
+        </Link>
+    );
+}
+
+function DashboardSection({
+    title,
+    description,
+    children,
+}: {
+    title: string;
+    description: string;
+    children: ReactNode;
+}) {
+    return (
+        <section className="mt-10">
+            <div className="mb-4 sm:flex sm:items-end sm:justify-between sm:gap-6">
+                <h2 className="text-lg font-semibold tracking-[-0.02em]">
+                    {title}
+                </h2>
+                <p className="text-muted mt-1 text-sm sm:mt-0">
+                    {description}
+                </p>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">{children}</div>
+        </section>
+    );
+}
+
 export default function DashboardPage() {
     const router = useRouter();
 
@@ -109,6 +194,7 @@ export default function DashboardPage() {
         {}
     );
     const [inventoryItemCount, setInventoryItemCount] = useState(0);
+    const [lastStockCheckAt, setLastStockCheckAt] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [greetingIndex, setGreetingIndex] = useState(0);
 
@@ -136,6 +222,7 @@ export default function DashboardPage() {
                 return;
             }
 
+            if (data.role !== "housekeeper") {
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
                 .select(
@@ -216,6 +303,7 @@ export default function DashboardPage() {
                     ).length,
                 });
             }
+            }
 
             if (["storekeeper", "owner"].includes(data.role)) {
                 const { count, error: inventoryError } = await supabase
@@ -229,6 +317,66 @@ export default function DashboardPage() {
                     );
                 } else {
                     setInventoryItemCount(count ?? 0);
+                }
+            }
+
+            if (data.role === "owner") {
+                const { data: stockCheckData, error: stockCheckError } =
+                    await supabase
+                        .from("stock_checks")
+                        .select("completed_at")
+                        .order("completed_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                if (stockCheckError) {
+                    console.error(
+                        "Error loading latest stock check:",
+                        stockCheckError
+                    );
+                } else {
+                    setLastStockCheckAt(stockCheckData?.completed_at ?? null);
+                }
+            }
+
+            if (["housekeeper", "storekeeper", "owner"].includes(data.role)) {
+                const { data: stockOutData, error: stockOutError } = await supabase
+                    .from("stock_out_requests")
+                    .select("status, requested_by");
+
+                if (stockOutError) {
+                    console.error("Error loading stock-out counts:", stockOutError);
+                } else {
+                    const stockOutRequests = (stockOutData ?? []) as StockOutSummary[];
+                    const ownStockRequests = stockOutRequests.filter(
+                        (request) => request.requested_by === user.id
+                    );
+
+                    setWorkflowCounts((counts) => ({
+                        ...counts,
+                        housekeeperPending: ownStockRequests.filter(
+                            (request) => request.status === "pending_storekeeper"
+                        ).length,
+                        housekeeperIssued: ownStockRequests.filter(
+                            (request) => request.status === "issued"
+                        ).length,
+                        housekeeperEscalated: ownStockRequests.filter(
+                            (request) => request.status === "escalated_owner"
+                        ).length,
+                        housekeeperVoided: ownStockRequests.filter(
+                            (request) => request.status === "cancelled"
+                        ).length,
+                        housekeeperAll: ownStockRequests.length,
+                        pendingStockOut: stockOutRequests.filter(
+                            (request) => request.status === "pending_storekeeper"
+                        ).length,
+                        issuedStockOut: stockOutRequests.filter(
+                            (request) => request.status === "issued"
+                        ).length,
+                        escalatedStockOut: stockOutRequests.filter(
+                            (request) => request.status === "escalated_owner"
+                        ).length,
+                    }));
                 }
             }
 
@@ -259,21 +407,30 @@ export default function DashboardPage() {
     }
 
     const reviewCount =
-        profile?.role === "procurement"
+        profile?.role === "housekeeper"
+            ? (workflowCounts.housekeeperEscalated ?? 0) +
+              (workflowCounts.housekeeperVoided ?? 0)
+            : profile?.role === "procurement"
             ? (workflowCounts.procurementRejected ?? 0)
             : profile?.role === "accountant"
               ? (workflowCounts.accountantPending ?? 0)
               : profile?.role === "storekeeper"
                 ? (workflowCounts.awaitingReceipt ?? 0) +
-                  (workflowCounts.receiptIssues ?? 0)
-                : (workflowCounts.needsAttention ?? 0);
+                  (workflowCounts.receiptIssues ?? 0) +
+                  (workflowCounts.pendingStockOut ?? 0)
+                : (workflowCounts.needsAttention ?? 0) +
+                  (workflowCounts.escalatedStockOut ?? 0);
     const reviewSummary = (() => {
         if (reviewCount === 0) {
             return "nothing new needs your attention.";
         }
 
         if (profile?.role === "storekeeper") {
-            return `${reviewCount} receipt ${reviewCount === 1 ? "task needs" : "tasks need"} your review.`;
+            return `${reviewCount} stock ${reviewCount === 1 ? "task needs" : "tasks need"} your review.`;
+        }
+
+        if (profile?.role === "housekeeper") {
+            return `${reviewCount} stock ${reviewCount === 1 ? "request has" : "requests have"} an update.`;
         }
 
         if (profile?.role === "procurement") {
@@ -283,15 +440,23 @@ export default function DashboardPage() {
         return `${reviewCount} ${reviewCount === 1 ? "request needs" : "requests need"} your review.`;
     })();
     const reviewHref =
-        profile?.role === "procurement"
+        profile?.role === "housekeeper"
+            ? (workflowCounts.housekeeperEscalated ?? 0) > 0
+                ? "/housekeeper/requests?tab=escalated"
+                : "/housekeeper/requests?tab=cancelled"
+            : profile?.role === "procurement"
             ? "/procurement?tab=rejected"
             : profile?.role === "accountant"
               ? "/accountant/requests?tab=pending"
               : profile?.role === "storekeeper"
                 ? (workflowCounts.receiptIssues ?? 0) > 0
                     ? "/storekeeper/receipts?tab=issues"
-                    : "/storekeeper/receipts?tab=awaiting"
-                : "/owner/needs-attention";
+                    : (workflowCounts.pendingStockOut ?? 0) > 0
+                      ? "/storekeeper/stock-out?tab=pending"
+                      : "/storekeeper/receipts?tab=awaiting"
+                : (workflowCounts.escalatedStockOut ?? 0) > 0
+                  ? "/storekeeper/stock-out?tab=escalated"
+                  : "/owner/needs-attention";
 
     return (
         <main className="app-page">
@@ -333,9 +498,72 @@ export default function DashboardPage() {
                     </span>
                 </Link>
 
-                <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                    {profile?.role === "procurement" && (
-                        <>
+                {profile?.role === "housekeeper" && (
+                    <DashboardSection
+                        title="Stock requests"
+                        description="Request consumables and follow their progress"
+                    >
+                        <Link
+                            href="/housekeeper/requests/new"
+                            className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
+                        >
+                            <h2 className="text-xl font-semibold">New Stock Request</h2>
+                            <p className="text-muted mt-2">Request consumables from the Storekeeper</p>
+                        </Link>
+                            <WorkflowWidget
+                                href="/housekeeper/requests?tab=pending"
+                                title="Pending"
+                                count={workflowCounts.housekeeperPending ?? 0}
+                                description="Requests waiting for the Storekeeper"
+                                tone="waiting"
+                            />
+                            <WorkflowWidget
+                                href="/housekeeper/requests?tab=issued"
+                                title="Issued"
+                                count={workflowCounts.housekeeperIssued ?? 0}
+                                description="Consumables handed over to you"
+                                tone="healthy"
+                            />
+                            <WorkflowWidget
+                                href="/housekeeper/requests?tab=escalated"
+                                title="Owner Review"
+                                count={workflowCounts.housekeeperEscalated ?? 0}
+                                description="Requests escalated by the Storekeeper"
+                                tone="attention"
+                            />
+                            <WorkflowWidget
+                                href="/housekeeper/requests?tab=cancelled"
+                                title="Voided"
+                                count={workflowCounts.housekeeperVoided ?? 0}
+                                description="Requests closed by the Owner"
+                                tone="neutral"
+                            />
+                            <WorkflowWidget
+                                href="/housekeeper/requests?tab=all"
+                                title="All Requests"
+                                count={workflowCounts.housekeeperAll ?? 0}
+                                description="Your complete stock request history"
+                                tone="neutral"
+                            />
+                    </DashboardSection>
+                )}
+
+                {profile?.role === "procurement" && (
+                    <DashboardSection
+                        title="Purchase requests"
+                        description="Create requests and track them from approval to receipt"
+                    >
+                        <Link
+                            href="/procurement/new"
+                            className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
+                        >
+                            <h2 className="text-xl font-semibold">
+                                New Purchase Request
+                            </h2>
+                            <p className="text-muted mt-2">
+                                Submit items for accountant approval
+                            </p>
+                        </Link>
                             <WorkflowWidget
                                 href="/procurement?tab=active"
                                 title="Active"
@@ -364,22 +592,14 @@ export default function DashboardPage() {
                                 description="Every request you have submitted"
                                 tone="neutral"
                             />
-                            <Link
-                                href="/procurement/new"
-                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
-                            >
-                                <h2 className="text-xl font-semibold">
-                                    New Purchase Request
-                                </h2>
-                                <p className="text-muted mt-2">
-                                    Submit items for accountant approval
-                                </p>
-                            </Link>
-                        </>
-                    )}
+                    </DashboardSection>
+                )}
 
-                    {profile?.role === "accountant" && (
-                        <>
+                {profile?.role === "accountant" && (
+                    <DashboardSection
+                        title="Purchase approvals"
+                        description="Review requests and find earlier decisions"
+                    >
                             <WorkflowWidget
                                 href="/accountant/requests?tab=pending"
                                 title="Pending"
@@ -408,11 +628,22 @@ export default function DashboardPage() {
                                 description="Pending and reviewed requests"
                                 tone="neutral"
                             />
-                        </>
-                    )}
+                    </DashboardSection>
+                )}
 
-                    {profile?.role === "storekeeper" && (
-                        <>
+                {profile?.role === "storekeeper" && (
+                    <>
+                        <DashboardSection
+                            title="Stock coming in"
+                            description="Check purchases and add received goods to inventory"
+                        >
+                            <WorkflowWidget
+                                href="/inventory"
+                                title="Inventory"
+                                count={inventoryItemCount}
+                                description="Items currently tracked in stock"
+                                tone="neutral"
+                            />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=awaiting"
                                 title="Awaiting Receipt"
@@ -434,18 +665,33 @@ export default function DashboardPage() {
                                 description="Requests added to inventory"
                                 tone="healthy"
                             />
+                        </DashboardSection>
+
+                        <DashboardSection
+                            title="Stock requests"
+                            description="Handle consumables requested by staff"
+                        >
                             <WorkflowWidget
-                                href="/inventory"
-                                title="Inventory"
-                                count={inventoryItemCount}
-                                description="Items currently tracked in stock"
-                                tone="neutral"
+                                href="/storekeeper/stock-out?tab=pending"
+                                title="Pending Stock Requests"
+                                count={workflowCounts.pendingStockOut ?? 0}
+                                description="Consumables waiting to be handed out"
+                                tone="waiting"
                             />
+                            <WorkflowWidget
+                                href="/storekeeper/stock-out?tab=issued"
+                                title="Recently Issued"
+                                count={workflowCounts.issuedStockOut ?? 0}
+                                description="Consumables already handed over"
+                                tone="healthy"
+                            />
+                        </DashboardSection>
                         </>
                     )}
 
-                    {profile?.role === "owner" && (
-                        <>
+                {profile?.role === "owner" && (
+                    <>
+                        <div className="mt-10 grid gap-6 sm:grid-cols-2">
                             <WorkflowWidget
                                 href="/owner/needs-attention"
                                 title="Needs Attention"
@@ -454,11 +700,50 @@ export default function DashboardPage() {
                                 tone="attention"
                             />
                             <WorkflowWidget
-                                href="/owner/awaiting-accountant"
-                                title="Awaiting Accountant"
-                                count={workflowCounts.awaitingAccountant ?? 0}
-                                description="Requests ready for approval"
+                                href="/inventory"
+                                title="Inventory"
+                                count={inventoryItemCount}
+                                description="Items currently tracked in stock"
+                                tone="neutral"
+                            />
+                        </div>
+
+                        <DashboardSection
+                            title="Stock"
+                            description="Goods coming into and going out of the store room"
+                        >
+                            <StockCheckWidget lastCompletedAt={lastStockCheckAt} />
+                            <Link
+                                href="/owner/stock-out/new"
+                                className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
+                            >
+                                <h2 className="text-xl font-semibold">
+                                    New Stock Request
+                                </h2>
+                                <p className="text-muted mt-2">
+                                    Request consumables from the Storekeeper
+                                </p>
+                            </Link>
+                            <WorkflowWidget
+                                href="/storekeeper/stock-out?tab=escalated"
+                                title="Stock-Out Escalations"
+                                count={workflowCounts.escalatedStockOut ?? 0}
+                                description="Consumable requests needing your decision"
+                                tone="attention"
+                            />
+                            <WorkflowWidget
+                                href="/storekeeper/stock-out?tab=pending"
+                                title="Pending Stock Requests"
+                                count={workflowCounts.pendingStockOut ?? 0}
+                                description="All consumable requests awaiting issue"
                                 tone="waiting"
+                            />
+                            <WorkflowWidget
+                                href="/storekeeper/stock-out?tab=issued"
+                                title="Issued Consumables"
+                                count={workflowCounts.issuedStockOut ?? 0}
+                                description="Completed stock-out requests"
+                                tone="healthy"
                             />
                             <WorkflowWidget
                                 href="/owner/awaiting-receipt"
@@ -467,13 +752,12 @@ export default function DashboardPage() {
                                 description="Approved requests ready to receive"
                                 tone="waiting"
                             />
-                            <WorkflowWidget
-                                href="/owner/recently-completed"
-                                title="Recently Completed"
-                                count={workflowCounts.recentlyCompleted ?? 0}
-                                description="Received purchase requests"
-                                tone="healthy"
-                            />
+                        </DashboardSection>
+
+                        <DashboardSection
+                            title="Purchase requests"
+                            description="Create purchases and follow their approval progress"
+                        >
                             <Link
                                 href="/procurement/new"
                                 className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
@@ -486,15 +770,22 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
-                                href="/inventory"
-                                title="Inventory"
-                                count={inventoryItemCount}
-                                description="Items currently tracked in stock"
-                                tone="neutral"
+                                href="/owner/awaiting-accountant"
+                                title="Awaiting Accountant"
+                                count={workflowCounts.awaitingAccountant ?? 0}
+                                description="Requests ready for approval"
+                                tone="waiting"
                             />
-                        </>
-                    )}
-                </div>
+                            <WorkflowWidget
+                                href="/owner/recently-completed"
+                                title="Recently Completed"
+                                count={workflowCounts.recentlyCompleted ?? 0}
+                                description="Received purchase requests"
+                                tone="healthy"
+                            />
+                        </DashboardSection>
+                    </>
+                )}
             </div>
         </main>
     );
