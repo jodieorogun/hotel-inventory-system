@@ -15,6 +15,7 @@ type OwnerRequest = {
     receivedAt: string | null;
     requestedBy: string;
     receiptIssueReason: string | null;
+    ownerEscalationReason: string | null;
     itemCount: number;
 };
 
@@ -25,6 +26,7 @@ type RequestRow = {
     requested_by: string;
     storekeeper_verified_at: string | null;
     receipt_issue_reason: string | null;
+    owner_escalation_reason: string | null;
 };
 
 type RequestItemRow = {
@@ -58,12 +60,12 @@ const statusDetails: Record<
     { label: string; className: string }
 > = {
     pending_accountant: {
-        label: "Awaiting Accountant",
+        label: "Waiting for Approval",
         className:
             "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
     approved: {
-        label: "Awaiting Receipt",
+        label: "Ready to Receive",
         className:
             "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300",
     },
@@ -133,9 +135,25 @@ function RequestCard({ request }: { request: OwnerRequest }) {
                     </p>
                     {request.status === "receipt_issue" &&
                         request.receiptIssueReason && (
-                            <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--danger)]">
-                                {request.receiptIssueReason}
-                            </p>
+                            <div className="mt-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4">
+                                <p className="text-sm font-semibold text-[var(--danger)]">
+                                    Receipt issue
+                                </p>
+                                <p className="mt-2 whitespace-pre-wrap text-sm">
+                                    {request.receiptIssueReason}
+                                </p>
+                            </div>
+                        )}
+                    {request.status === "escalated_owner" &&
+                        request.ownerEscalationReason && (
+                            <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-900 dark:bg-purple-950">
+                                <p className="text-sm font-semibold text-purple-800 dark:text-purple-300">
+                                    Reason for escalation
+                                </p>
+                                <p className="mt-2 whitespace-pre-wrap text-sm">
+                                    {request.ownerEscalationReason}
+                                </p>
+                            </div>
                         )}
                 </div>
 
@@ -407,7 +425,7 @@ export default function OwnerWorkflow({
             const { data: requestData, error: requestsError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, storekeeper_verified_at, receipt_issue_reason"
+                    "id, status, created_at, requested_by, storekeeper_verified_at, receipt_issue_reason, owner_escalation_reason"
                 )
                 .order("created_at", { ascending: false });
 
@@ -475,6 +493,7 @@ export default function OwnerWorkflow({
                 requestedBy:
                     usersById.get(request.requested_by) ?? "Procurement user",
                 receiptIssueReason: request.receipt_issue_reason,
+                ownerEscalationReason: request.owner_escalation_reason,
                 itemCount: itemRows.filter(
                     (item) => item.request_id === request.id
                 ).length,
@@ -511,7 +530,10 @@ export default function OwnerWorkflow({
         !normalizedSearch ||
         String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
         request.requestedBy.toLowerCase().includes(normalizedSearch) ||
-        request.receiptIssueReason?.toLowerCase().includes(normalizedSearch);
+        request.receiptIssueReason?.toLowerCase().includes(normalizedSearch) ||
+        request.ownerEscalationReason
+            ?.toLowerCase()
+            .includes(normalizedSearch);
     const needsAttention = requests.filter(
         (request) =>
             ["rejected", "receipt_issue", "escalated_owner"].includes(
@@ -542,21 +564,21 @@ export default function OwnerWorkflow({
                       "Escalations, Accountant rejections, and receipt issues.",
               },
               "awaiting-accountant": {
-                  title: "Awaiting Accountant",
-                  description: "Requests waiting for approval or rejection.",
+                  title: "Waiting for Approval",
+                  description: "Purchase requests waiting for a decision.",
               },
               "awaiting-receipt": {
-                  title: "Awaiting Receipt",
+                  title: "Ready to Receive",
                   description:
                       "Approved requests waiting to be received into stock.",
               },
               "recently-completed": {
-                  title: "Recently Completed",
+                  title: "Completed",
                   description:
                       "Purchase requests recently received into inventory.",
               },
               "all-purchase-requests": {
-                  title: "All Purchase Requests",
+                  title: "Purchase Requests",
                   description:
                       "Every purchase request in the system, from creation to completion.",
               },
@@ -633,16 +655,16 @@ export default function OwnerWorkflow({
                         {view === "awaiting-accountant" && (
                             <RequestSection
                                 id="awaiting-accountant"
-                                title="Awaiting Accountant"
-                                description="Requests waiting for approval or rejection."
-                                emptyMessage="No requests are awaiting accountant review."
+                                title="Waiting for Approval"
+                                description="Purchase requests waiting for a decision."
+                                emptyMessage="No purchase requests are waiting for approval."
                                 requests={awaitingAccountant}
                             />
                         )}
                         {view === "awaiting-receipt" && (
                             <RequestSection
                                 id="awaiting-receipt"
-                                title="Awaiting Receipt"
+                                title="Ready to Receive"
                                 description="Approved requests waiting to be received into stock."
                                 emptyMessage="No approved requests are awaiting receipt."
                                 requests={awaitingReceipt}
@@ -651,7 +673,7 @@ export default function OwnerWorkflow({
                         {view === "recently-completed" && (
                             <RequestSection
                                 id="recently-completed"
-                                title="Recently Completed"
+                                title="Completed"
                                 description="Purchase requests recently received into inventory."
                                 emptyMessage="No purchase requests have been completed yet."
                                 requests={recentlyCompleted}
@@ -660,7 +682,7 @@ export default function OwnerWorkflow({
                         {view === "all-purchase-requests" && (
                             <RequestSection
                                 id="all-purchase-requests"
-                                title="All Purchase Requests"
+                                title="Purchase Requests"
                                 description="Every purchase request in the system."
                                 emptyMessage="No purchase requests have been created yet."
                                 requests={allPurchaseRequests}

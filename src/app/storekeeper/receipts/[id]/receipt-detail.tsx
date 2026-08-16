@@ -618,7 +618,7 @@ export default function ReceiptDetail({
                     "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
             }
           : {
-                label: "Awaiting Receipt",
+                label: "Ready to Receive",
                 className:
                     "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
             };

@@ -35,6 +35,7 @@ type PurchaseRequest = {
     receiptIssueResolvedBy: string | null;
     ownerEscalatedAt: string | null;
     ownerEscalatedBy: string | null;
+    ownerEscalationReason: string | null;
     ownerReviewedAt: string | null;
     ownerReviewedBy: string | null;
     ownerDecision: string | null;
@@ -72,6 +73,7 @@ type RequestRow = {
     receipt_issue_resolved_at: string | null;
     owner_escalated_by: string | null;
     owner_escalated_at: string | null;
+    owner_escalation_reason: string | null;
     owner_reviewed_by: string | null;
     owner_reviewed_at: string | null;
     owner_decision: string | null;
@@ -112,12 +114,12 @@ const statusDetails: Record<
     { label: string; className: string }
 > = {
     pending_accountant: {
-        label: "Pending Accountant Approval",
+        label: "Waiting for Approval",
         className:
             "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
     approved: {
-        label: "Approved",
+        label: "Waiting for Receipt",
         className:
             "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
     },
@@ -240,7 +242,7 @@ export default function RequestDetail({
             const { data: requestData, error: requestError } = await supabase
                 .from("purchase_requests")
                 .select(
-                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, rejection_reason, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at, owner_escalated_by, owner_escalated_at, owner_reviewed_by, owner_reviewed_at, owner_decision, owner_rejection_reason, voided_by, voided_at"
+                    "id, status, created_at, requested_by, accountant_approved_by, accountant_approved_at, storekeeper_verified_by, storekeeper_verified_at, rejection_reason, receipt_issue_reason, receipt_issue_reported_by, receipt_issue_reported_at, receipt_issue_resolved_by, receipt_issue_resolved_at, owner_escalated_by, owner_escalated_at, owner_escalation_reason, owner_reviewed_by, owner_reviewed_at, owner_decision, owner_rejection_reason, voided_by, voided_at"
                 )
                 .eq("id", Number(requestId))
                 .maybeSingle();
@@ -363,6 +365,7 @@ export default function RequestDetail({
                     ? (usersById.get(requestRow.owner_escalated_by) ??
                       "Procurement user")
                     : null,
+                ownerEscalationReason: requestRow.owner_escalation_reason,
                 ownerReviewedAt: requestRow.owner_reviewed_at,
                 ownerReviewedBy: requestRow.owner_reviewed_by
                     ? (usersById.get(requestRow.owner_reviewed_by) ?? "Owner")
@@ -743,7 +746,7 @@ export default function RequestDetail({
                         href="/accountant/requests"
                         className="secondary-action mt-6"
                     >
-                        Back to Purchase Approvals
+                        Back to Purchase Requests
                     </Link>
                 </div>
             </main>
@@ -807,6 +810,18 @@ export default function RequestDetail({
                     </div>
                 )}
 
+                {request.status === "escalated_owner" &&
+                    request.ownerEscalationReason && (
+                        <div className="mt-8 rounded-xl border border-purple-200 bg-purple-50 p-5 dark:border-purple-900 dark:bg-purple-950">
+                            <h2 className="font-semibold text-purple-800 dark:text-purple-300">
+                                Reason for escalation
+                            </h2>
+                            <p className="mt-2 whitespace-pre-wrap text-[var(--foreground)]">
+                                {request.ownerEscalationReason}
+                            </p>
+                        </div>
+                    )}
+
                 <RequestHistory
                     entries={historyEntries.length > 0 ? historyEntries : [
                         {
@@ -837,6 +852,7 @@ export default function RequestDetail({
                                       action: "Escalated to Owner",
                                       person: request.ownerEscalatedBy,
                                       timestamp: request.ownerEscalatedAt,
+                                      detail: request.ownerEscalationReason,
                                   },
                               ]
                             : []),

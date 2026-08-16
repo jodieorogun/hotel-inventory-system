@@ -368,8 +368,8 @@ export default function StorekeeperReceiptsPage() {
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "awaiting", label: "Awaiting Receipt" },
-                            { value: "issues", label: "Receipt Issues" },
+                            { value: "awaiting", label: "To Receive" },
+                            { value: "issues", label: "Issues" },
                             { value: "received", label: "Received" },
                             { value: "all", label: "All" },
                         ]}
@@ -394,13 +394,13 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="waiting-heading"
                         >
                             <h2 id="waiting-heading" className="text-xl font-semibold">
-                                Awaiting Receipt
+                                To Receive
                             </h2>
 
                             {waitingRequests.length === 0 ? (
                                 <div className="surface-card mt-4 p-8 text-center">
                                     <h3 className="text-lg font-semibold">
-                                        No receipts awaiting review
+                                        No purchases to receive
                                     </h3>
                                     <p className="text-muted mt-2">
                                         Approved purchases will appear here.
@@ -433,7 +433,7 @@ export default function StorekeeperReceiptsPage() {
                                                 </div>
 
                                                 <span className="inline-flex self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                                                    Awaiting Receipt
+                                                    To Receive
                                                 </span>
                                             </div>
 
@@ -459,7 +459,7 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="issues-heading"
                         >
                             <h2 id="issues-heading" className="text-xl font-semibold">
-                                Receipt Issues
+                                Issues
                             </h2>
 
                             {issueRequests.length === 0 ? (
@@ -520,7 +520,7 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="received-heading"
                         >
                             <h2 id="received-heading" className="text-xl font-semibold">
-                                Recently Received
+                                Received
                             </h2>
 
                             {receivedRequests.length === 0 ? (

@@ -23,6 +23,7 @@ type ProcurementRequest = {
     reviewedAt: string | null;
     receivedAt: string | null;
     rejectionReason: string | null;
+    ownerEscalationReason: string | null;
     ownerRejectionReason: string | null;
     lines: RequestLine[];
 };
@@ -46,6 +47,7 @@ type RequestRow = {
     owner_reviewed_at: string | null;
     storekeeper_verified_at: string | null;
     rejection_reason: string | null;
+    owner_escalation_reason: string | null;
     owner_rejection_reason: string | null;
 };
 
@@ -77,17 +79,17 @@ const statusDetails: Record<
     { label: string; className: string }
 > = {
     pending_accountant: {
-        label: "Pending Accountant Approval",
+        label: "Waiting for Approval",
         className:
             "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
     approved: {
-        label: "Approved",
+        label: "Waiting for Receipt",
         className:
             "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300",
     },
     rejected: {
-        label: "Rejected",
+        label: "Needs Changes",
         className:
             "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
     },
@@ -140,6 +142,10 @@ export default function ProcurementRequestsPage() {
         useState<ProcurementRequest | null>(null);
     const [editLines, setEditLines] = useState<RequestLine[]>([]);
     const [savingRequest, setSavingRequest] = useState(false);
+    const [escalationRequest, setEscalationRequest] =
+        useState<ProcurementRequest | null>(null);
+    const [escalationReason, setEscalationReason] = useState("");
+    const [escalationError, setEscalationError] = useState("");
     const [escalatingRequestId, setEscalatingRequestId] = useState<number | null>(
         null
     );
@@ -178,7 +184,7 @@ export default function ProcurementRequestsPage() {
                 await supabase
                     .from("purchase_requests")
                     .select(
-                        "id, status, created_at, accountant_approved_at, owner_reviewed_at, storekeeper_verified_at, rejection_reason, owner_rejection_reason"
+                        "id, status, created_at, accountant_approved_at, owner_reviewed_at, storekeeper_verified_at, rejection_reason, owner_escalation_reason, owner_rejection_reason"
                     )
                     .eq("requested_by", user.id)
                     .order("created_at", { ascending: false });
@@ -267,6 +273,7 @@ export default function ProcurementRequestsPage() {
                     request.accountant_approved_at,
                 receivedAt: request.storekeeper_verified_at,
                 rejectionReason: request.rejection_reason,
+                ownerEscalationReason: request.owner_escalation_reason,
                 ownerRejectionReason: request.owner_rejection_reason,
                 lines: lineRows
                     .filter((line) => line.request_id === request.id)
@@ -422,6 +429,7 @@ export default function ProcurementRequestsPage() {
                           ...request,
                           status: "pending_accountant",
                           rejectionReason: null,
+                          ownerEscalationReason: null,
                           ownerRejectionReason: null,
                           lines: editLines,
                       }
@@ -432,17 +440,29 @@ export default function ProcurementRequestsPage() {
         setSavingRequest(false);
     }
 
-    async function escalateToOwner(request: ProcurementRequest) {
-        const confirmed = window.confirm(
-            `Escalate Purchase Request #${request.id} to the Owner?\n\nThe Owner will be able to approve or reject the request.`
-        );
+    function openEscalationDialog(request: ProcurementRequest) {
+        setEscalationRequest(request);
+        setEscalationReason("");
+        setEscalationError("");
+    }
 
-        if (!confirmed) {
+    async function escalateToOwner(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!escalationRequest || escalatingRequestId !== null) {
             return;
         }
 
-        setEscalatingRequestId(request.id);
+        const reason = escalationReason.trim();
+
+        if (!reason) {
+            setEscalationError("Enter a reason for escalating this request.");
+            return;
+        }
+
+        setEscalatingRequestId(escalationRequest.id);
         setErrorMessage("");
+        setEscalationError("");
 
         const {
             data: { user },
@@ -460,31 +480,38 @@ export default function ProcurementRequestsPage() {
                 status: "escalated_owner",
                 owner_escalated_by: user.id,
                 owner_escalated_at: new Date().toISOString(),
+                owner_escalation_reason: reason,
                 owner_reviewed_by: null,
                 owner_reviewed_at: null,
                 owner_decision: null,
                 owner_rejection_reason: null,
             })
-            .eq("id", request.id)
+            .eq("id", escalationRequest.id)
             .eq("status", "rejected")
             .select("id")
             .maybeSingle();
 
         if (error || !escalatedRequest) {
             console.error("Error escalating purchase request:", error);
-            setErrorMessage("Could not escalate this request to the Owner.");
+            setEscalationError("Could not escalate this request to the Owner.");
             setEscalatingRequestId(null);
             return;
         }
 
         setRequests((currentRequests) =>
             currentRequests.map((currentRequest) =>
-                currentRequest.id === request.id
-                    ? { ...currentRequest, status: "escalated_owner" }
+                currentRequest.id === escalationRequest.id
+                    ? {
+                          ...currentRequest,
+                          status: "escalated_owner",
+                          ownerEscalationReason: reason,
+                      }
                     : currentRequest
             )
         );
         setEscalatingRequestId(null);
+        setEscalationRequest(null);
+        setEscalationReason("");
     }
 
     if (loading) {
@@ -526,6 +553,9 @@ export default function ProcurementRequestsPage() {
                 line.itemName.toLowerCase().includes(normalizedSearch)
             ) ||
             request.rejectionReason?.toLowerCase().includes(normalizedSearch) ||
+            request.ownerEscalationReason
+                ?.toLowerCase()
+                .includes(normalizedSearch) ||
             request.ownerRejectionReason
                 ?.toLowerCase()
                 .includes(normalizedSearch);
@@ -551,10 +581,10 @@ export default function ProcurementRequestsPage() {
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="page-title">My Purchases</h1>
+                        <h1 className="page-title">Purchase Requests</h1>
 
                         <p className="page-description mt-2">
-                            Track your submitted purchase requests.
+                            Create purchases and follow their progress.
                         </p>
                     </div>
 
@@ -575,8 +605,8 @@ export default function ProcurementRequestsPage() {
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "active", label: "Active" },
-                            { value: "rejected", label: "Rejected" },
+                            { value: "active", label: "In Progress" },
+                            { value: "rejected", label: "Needs Changes" },
                             { value: "completed", label: "Completed" },
                             { value: "all", label: "All" },
                         ]}
@@ -588,7 +618,7 @@ export default function ProcurementRequestsPage() {
                         onPickedDateChange={setPickedDate}
                         searchQuery={searchQuery}
                         onSearchQueryChange={setSearchQuery}
-                        searchPlaceholder="Search by request number, item, or rejection reason"
+                        searchPlaceholder="Search by request number, item, or reason"
                     />
                 )}
 
@@ -715,6 +745,18 @@ export default function ProcurementRequestsPage() {
                                             </div>
                                         )}
 
+                                    {request.status === "escalated_owner" &&
+                                        request.ownerEscalationReason && (
+                                            <div className="border-t border-purple-200 bg-purple-50 px-6 py-5 dark:border-purple-900 dark:bg-purple-950">
+                                                <p className="text-sm font-semibold text-purple-800 dark:text-purple-300">
+                                                    Reason for escalation
+                                                </p>
+                                                <p className="mt-2 whitespace-pre-wrap text-sm">
+                                                    {request.ownerEscalationReason}
+                                                </p>
+                                            </div>
+                                        )}
+
                                     {request.status === "rejected" && (
                                         <div className="grid gap-3 border-t border-[var(--border)] p-5 sm:grid-cols-2">
                                             <button
@@ -729,7 +771,7 @@ export default function ProcurementRequestsPage() {
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    escalateToOwner(request)
+                                                    openEscalationDialog(request)
                                                 }
                                                 disabled={
                                                     escalatingRequestId ===
@@ -915,6 +957,85 @@ export default function ProcurementRequestsPage() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {escalationRequest && (
+                <div
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
+                    role="presentation"
+                >
+                    <form
+                        onSubmit={escalateToOwner}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="escalate-request-title"
+                        className="surface-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto p-6 sm:p-7"
+                    >
+                        <h2
+                            id="escalate-request-title"
+                            className="text-xl font-semibold"
+                        >
+                            Escalate Request #{escalationRequest.id}?
+                        </h2>
+                        <p className="text-muted mt-2 text-sm">
+                            Explain why the Owner needs to review this request.
+                        </p>
+
+                        <label
+                            htmlFor="escalation-reason"
+                            className="form-label mt-6"
+                        >
+                            Reason for escalation
+                        </label>
+                        <textarea
+                            id="escalation-reason"
+                            value={escalationReason}
+                            onChange={(event) => {
+                                setEscalationReason(event.target.value);
+                                setEscalationError("");
+                            }}
+                            rows={4}
+                            maxLength={500}
+                            autoFocus
+                            required
+                            disabled={escalatingRequestId !== null}
+                            placeholder="Explain why you want the Owner to decide."
+                            className="form-control resize-y"
+                        />
+
+                        {escalationError && (
+                            <p
+                                className="mt-3 text-sm text-[var(--danger)]"
+                                role="alert"
+                            >
+                                {escalationError}
+                            </p>
+                        )}
+
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                onClick={() => setEscalationRequest(null)}
+                                disabled={escalatingRequestId !== null}
+                                className="secondary-action"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={
+                                    escalatingRequestId !== null ||
+                                    !escalationReason.trim()
+                                }
+                                className="primary-action"
+                            >
+                                {escalatingRequestId !== null
+                                    ? "Escalating..."
+                                    : "Escalate Request"}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </main>

@@ -229,7 +229,7 @@ export default function OwnerUsersPage() {
 
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="page-title">Users</h1>
+                        <h1 className="page-title">Staff</h1>
                         <p className="page-description mt-2 max-w-2xl">
                             Add staff, change their access, or deactivate accounts when someone leaves.
                         </p>
@@ -242,7 +242,7 @@ export default function OwnerUsersPage() {
                         }}
                         className="primary-action"
                     >
-                        {showAddForm ? "Cancel" : "Add User"}
+                        {showAddForm ? "Cancel" : "Add Staff"}
                     </button>
                 </div>
 
