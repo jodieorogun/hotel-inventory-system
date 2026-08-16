@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AppHeader from "@/components/app-header";
 import ListSearch from "@/components/list-search";
+import { capitalizeInputWords } from "@/lib/item-validation";
 import { supabase } from "@/lib/supabase";
 import {
     formatStaffRole,
@@ -274,6 +275,10 @@ export default function OwnerUsersPage() {
                                     type="text"
                                     value={name}
                                     onChange={(event) => setName(event.target.value)}
+                                    onBlur={() =>
+                                        setName(capitalizeInputWords(name))
+                                    }
+                                    autoCapitalize="words"
                                     className="form-control"
                                     autoComplete="name"
                                     required

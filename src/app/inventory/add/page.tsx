@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
 import {
+    capitalizeInputWords,
     hasDuplicateItemName,
     isValidUnitLabel,
 } from "@/lib/item-validation";
@@ -89,9 +90,10 @@ export default function AddInventoryItemPage() {
         setErrorMessage("");
         setSuccessMessage("");
 
-        const trimmedName = name.trim();
-        const trimmedUnit = unit.trim();
-        const trimmedPurchaseUnit = purchaseUnit.trim();
+        const trimmedName = capitalizeInputWords(name);
+        const trimmedCategory = capitalizeInputWords(category);
+        const trimmedUnit = capitalizeInputWords(unit);
+        const trimmedPurchaseUnit = capitalizeInputWords(purchaseUnit);
         const conversion = Number(unitsPerPurchaseUnit);
 
         if (
@@ -121,7 +123,7 @@ export default function AddInventoryItemPage() {
             .from("items")
             .insert([{
                 name: trimmedName,
-                category: category.trim(),
+                category: trimmedCategory,
                 unit: trimmedUnit,
                 purchase_unit: trimmedPurchaseUnit,
                 units_per_purchase_unit: conversion,
@@ -191,6 +193,8 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={name}
                             onChange={(event) => setName(event.target.value)}
+                            onBlur={() => setName(capitalizeInputWords(name))}
+                            autoCapitalize="words"
                             className="form-control"
                             placeholder="e.g. Toilet Roll"
                             required
@@ -207,6 +211,10 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={category}
                             onChange={(event) => setCategory(event.target.value)}
+                            onBlur={() =>
+                                setCategory(capitalizeInputWords(category))
+                            }
+                            autoCapitalize="words"
                             className="form-control"
                             placeholder="e.g. Cleaning"
                             required
@@ -223,6 +231,8 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={unit}
                             onChange={(event) => setUnit(event.target.value)}
+                            onBlur={() => setUnit(capitalizeInputWords(unit))}
+                            autoCapitalize="words"
                             className="form-control"
                             placeholder="e.g. roll"
                             required
@@ -241,6 +251,12 @@ export default function AddInventoryItemPage() {
                             type="text"
                             value={purchaseUnit}
                             onChange={(event) => setPurchaseUnit(event.target.value)}
+                            onBlur={() =>
+                                setPurchaseUnit(
+                                    capitalizeInputWords(purchaseUnit)
+                                )
+                            }
+                            autoCapitalize="words"
                             className="form-control"
                             placeholder="e.g. pack"
                             required

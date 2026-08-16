@@ -7,10 +7,17 @@ import {
     stockEquivalent,
 } from "../src/lib/units.ts";
 import {
+    capitalizeInputWords,
     hasDuplicateItemName,
     isValidUnitLabel,
     normalizeItemName,
 } from "../src/lib/item-validation.ts";
+
+test("short labels are capitalized and extra spaces are removed", () => {
+    assert.equal(capitalizeInputWords("  toilet   rolls "), "Toilet Rolls");
+    assert.equal(capitalizeInputWords("front-desk supplies"), "Front-Desk Supplies");
+    assert.equal(capitalizeInputWords("john's room"), "John's Room");
+});
 
 test("uncountable stock units are not incorrectly pluralized", () => {
     assert.equal(pluralizeUnit("each", 3), "each");

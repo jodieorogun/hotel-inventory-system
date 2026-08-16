@@ -6,10 +6,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { formatStaffRole } from "@/lib/staff-roles";
 import { supabase } from "@/lib/supabase";
-import {
-    formatQuantity,
-    hasPurchaseConversion,
-} from "@/lib/units";
+import { formatQuantity } from "@/lib/units";
 
 type InventoryItem = {
     id: number;
@@ -461,7 +458,7 @@ export default function InventoryItemDetail({ itemId }: { itemId: string }) {
                 </div>
 
                 <section
-                    className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                    className="mt-8 grid gap-4 sm:grid-cols-3"
                     aria-label="Item details"
                 >
                     <div className="surface-card p-5">
@@ -477,18 +474,6 @@ export default function InventoryItemDetail({ itemId }: { itemId: string }) {
                     <div className="surface-card p-5">
                         <p className="text-muted text-sm">Stock unit</p>
                         <p className="mt-2 text-lg font-semibold">{item.unit}</p>
-                    </div>
-                    <div className="surface-card p-5">
-                        <p className="text-muted text-sm">Purchased as</p>
-                        <p className="mt-2 text-lg font-semibold">
-                            {hasPurchaseConversion(
-                                item.unit,
-                                item.purchase_unit,
-                                Number(item.units_per_purchase_unit)
-                            )
-                                ? `1 ${item.purchase_unit} = ${formatQuantity(Number(item.units_per_purchase_unit), item.unit)}`
-                                : item.purchase_unit}
-                        </p>
                     </div>
                 </section>
 

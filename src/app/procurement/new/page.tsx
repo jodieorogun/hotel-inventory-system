@@ -10,7 +10,10 @@ import {
     hasPurchaseConversion,
     stockEquivalent,
 } from "@/lib/units";
-import { isValidUnitLabel } from "@/lib/item-validation";
+import {
+    capitalizeInputWords,
+    isValidUnitLabel,
+} from "@/lib/item-validation";
 
 type Item = {
     id: number;
@@ -209,10 +212,12 @@ export default function NewProcurementRequestPage() {
             return;
         }
 
-        const name = newItemForm.name.trim();
-        const category = newItemForm.category.trim();
-        const unit = newItemForm.unit.trim();
-        const purchaseUnit = newItemForm.purchaseUnit.trim();
+        const name = capitalizeInputWords(newItemForm.name);
+        const category = capitalizeInputWords(newItemForm.category);
+        const unit = capitalizeInputWords(newItemForm.unit);
+        const purchaseUnit = capitalizeInputWords(
+            newItemForm.purchaseUnit
+        );
         const unitsPerPurchaseUnit = Number(
             newItemForm.unitsPerPurchaseUnit
         );
@@ -353,7 +358,7 @@ export default function NewProcurementRequestPage() {
             item_id: Number(line.itemId),
             quantity: Number(line.quantity),
             unit_price: Number(line.unitPrice),
-            purchase_unit: line.purchaseUnit,
+            purchase_unit: capitalizeInputWords(line.purchaseUnit),
             units_per_purchase_unit: line.unitsPerPurchaseUnit,
         }));
         const { data: requestId, error: requestError } = await supabase.rpc(
@@ -626,9 +631,10 @@ export default function NewProcurementRequestPage() {
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
                                             <label className="form-label" htmlFor={`new-item-name-${index}`}>Name</label>
-                                            <input
-                                                id={`new-item-name-${index}`}
-                                                type="text"
+                                                <input
+                                                    id={`new-item-name-${index}`}
+                                                    type="text"
+                                                    autoCapitalize="words"
                                                 value={newItemForm.name}
                                                 onChange={(event) =>
                                                     setNewItemForm({
@@ -643,9 +649,10 @@ export default function NewProcurementRequestPage() {
 
                                         <div>
                                             <label className="form-label" htmlFor={`new-item-category-${index}`}>Category</label>
-                                            <input
-                                                id={`new-item-category-${index}`}
-                                                type="text"
+                                                <input
+                                                    id={`new-item-category-${index}`}
+                                                    type="text"
+                                                    autoCapitalize="words"
                                                 value={newItemForm.category}
                                                 onChange={(event) =>
                                                     setNewItemForm({
@@ -660,9 +667,10 @@ export default function NewProcurementRequestPage() {
 
                                         <div>
                                             <label className="form-label" htmlFor={`new-item-unit-${index}`}>Stock unit</label>
-                                            <input
-                                                id={`new-item-unit-${index}`}
-                                                type="text"
+                                                <input
+                                                    id={`new-item-unit-${index}`}
+                                                    type="text"
+                                                    autoCapitalize="words"
                                                 value={newItemForm.unit}
                                                 onChange={(event) =>
                                                     setNewItemForm({
@@ -677,9 +685,10 @@ export default function NewProcurementRequestPage() {
 
                                         <div>
                                             <label className="form-label" htmlFor={`new-item-purchase-unit-${index}`}>Purchase unit</label>
-                                            <input
-                                                id={`new-item-purchase-unit-${index}`}
-                                                type="text"
+                                                <input
+                                                    id={`new-item-purchase-unit-${index}`}
+                                                    type="text"
+                                                    autoCapitalize="words"
                                                 value={newItemForm.purchaseUnit}
                                                 onChange={(event) =>
                                                     setNewItemForm({

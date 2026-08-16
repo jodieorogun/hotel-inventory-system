@@ -9,6 +9,7 @@ import RequestHistory, {
     type RequestHistoryEntry,
 } from "@/components/request-history";
 import { loadRequestHistory } from "@/lib/request-history";
+import { capitalizeInputWords } from "@/lib/item-validation";
 import { supabase } from "@/lib/supabase";
 import {
     formatQuantity,
@@ -607,7 +608,7 @@ export default function RequestDetail({
                 item_id: line.itemId,
                 quantity: line.quantity,
                 unit_price: line.unitPrice,
-                purchase_unit: line.purchaseUnit,
+                purchase_unit: capitalizeInputWords(line.purchaseUnit),
                 units_per_purchase_unit: line.unitsPerPurchaseUnit,
             })),
         });

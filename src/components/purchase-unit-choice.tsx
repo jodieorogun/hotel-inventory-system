@@ -1,4 +1,5 @@
 import { formatQuantity, hasPurchaseConversion } from "@/lib/units";
+import { capitalizeInputWords } from "@/lib/item-validation";
 
 export default function PurchaseUnitChoice({
     id,
@@ -87,6 +88,13 @@ export default function PurchaseUnitChoice({
                             onChange={(event) =>
                                 onChange(event.target.value, unitsPerPurchaseUnit)
                             }
+                            onBlur={() =>
+                                onChange(
+                                    capitalizeInputWords(purchaseUnit),
+                                    unitsPerPurchaseUnit
+                                )
+                            }
+                            autoCapitalize="words"
                             maxLength={40}
                             disabled={disabled}
                             placeholder="e.g. box, case or bundle"

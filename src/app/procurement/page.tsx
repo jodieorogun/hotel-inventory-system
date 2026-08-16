@@ -9,7 +9,10 @@ import RequestListFilters, {
     DateFilterValue,
     matchesDateFilter,
 } from "@/components/request-list-filters";
-import { isValidUnitLabel } from "@/lib/item-validation";
+import {
+    capitalizeInputWords,
+    isValidUnitLabel,
+} from "@/lib/item-validation";
 import { supabase } from "@/lib/supabase";
 import {
     formatQuantity,
@@ -411,7 +414,7 @@ export default function ProcurementRequestsPage() {
                 item_id: line.itemId,
                 quantity: line.quantity,
                 unit_price: line.unitPrice,
-                purchase_unit: line.purchaseUnit,
+                purchase_unit: capitalizeInputWords(line.purchaseUnit),
                 units_per_purchase_unit: line.unitsPerPurchaseUnit,
             })),
         });
