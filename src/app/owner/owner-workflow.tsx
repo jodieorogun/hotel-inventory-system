@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import ListSearch from "@/components/list-search";
 import { supabase } from "@/lib/supabase";
+import { loadVisibleUserNames } from "@/lib/user-names";
 
 type OwnerRequest = {
     id: number;
@@ -33,6 +34,23 @@ type RequestItemRow = {
 type UserRow = {
     id: string;
     name: string;
+};
+
+type OwnerStockRequest = {
+    id: number;
+    createdAt: string;
+    requestedBy: string;
+    itemCount: number;
+};
+
+type StockRequestRow = {
+    id: number;
+    created_at: string;
+    requested_by: string;
+};
+
+type StockRequestItemRow = {
+    request_id: number;
 };
 
 const statusDetails: Record<
@@ -175,11 +193,169 @@ function RequestSection({
     );
 }
 
+function StockEscalationsSection({ searchQuery }: { searchQuery: string }) {
+    const [requests, setRequests] = useState<OwnerStockRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    useEffect(() => {
+        let ignore = false;
+
+        async function loadEscalations() {
+            const { data, error } = await supabase
+                .from("stock_out_requests")
+                .select("id, created_at, requested_by")
+                .eq("status", "escalated_owner")
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Error loading stock request escalations:", error);
+                if (!ignore) {
+                    setErrorMessage("Could not load escalated stock requests.");
+                    setLoading(false);
+                }
+                return;
+            }
+
+            const rows = (data ?? []) as StockRequestRow[];
+            if (rows.length === 0) {
+                if (!ignore) {
+                    setRequests([]);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            const requestIds = rows.map((request) => request.id);
+            const requesterIds = [
+                ...new Set(rows.map((request) => request.requested_by)),
+            ];
+            const [itemsResult, usersById] = await Promise.all([
+                supabase
+                    .from("stock_out_request_items")
+                    .select("request_id")
+                    .in("request_id", requestIds),
+                loadVisibleUserNames(requesterIds),
+            ]);
+
+            if (itemsResult.error) {
+                console.error(
+                    "Error loading escalated stock request items:",
+                    itemsResult.error
+                );
+                if (!ignore) {
+                    setErrorMessage("Could not load escalated stock request details.");
+                    setLoading(false);
+                }
+                return;
+            }
+
+            const items = (itemsResult.data ?? []) as StockRequestItemRow[];
+            const formattedRequests = rows.map((request) => ({
+                id: request.id,
+                createdAt: request.created_at,
+                requestedBy:
+                    usersById.get(request.requested_by) ?? "Housekeeper",
+                itemCount: items.filter(
+                    (item) => item.request_id === request.id
+                ).length,
+            }));
+
+            if (!ignore) {
+                setRequests(formattedRequests);
+                setLoading(false);
+            }
+        }
+
+        loadEscalations();
+
+        return () => {
+            ignore = true;
+        };
+    }, []);
+
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const filteredRequests = requests.filter(
+        (request) =>
+            !normalizedSearch ||
+            String(request.id).includes(normalizedSearch.replace(/^#/, "")) ||
+            request.requestedBy.toLowerCase().includes(normalizedSearch)
+    );
+
+    return (
+        <section className="mt-12" aria-labelledby="stock-request-escalations">
+            <h2 id="stock-request-escalations" className="text-xl font-semibold">
+                Stock Requests
+            </h2>
+            <p className="text-muted mt-1 text-sm">
+                Consumable requests escalated by the Storekeeper.
+            </p>
+
+            {loading ? (
+                <div className="surface-card mt-4 p-7 text-center">
+                    <p className="text-muted">Loading stock requests...</p>
+                </div>
+            ) : errorMessage ? (
+                <div className="error-message mt-4" role="alert">
+                    {errorMessage}
+                </div>
+            ) : filteredRequests.length === 0 ? (
+                <div className="surface-card mt-4 p-7 text-center">
+                    <p className="text-muted">
+                        No stock requests currently need attention.
+                    </p>
+                </div>
+            ) : (
+                <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                    {filteredRequests.map((request) => (
+                        <article
+                            key={request.id}
+                            className="surface-card h-full overflow-hidden"
+                        >
+                            <div className="flex flex-col gap-5 p-7 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-xl font-semibold">
+                                        Request #{request.id}
+                                    </h3>
+                                    <p className="text-muted mt-2 text-sm">
+                                        Requested by: {request.requestedBy}
+                                    </p>
+                                    <p className="text-muted mt-1 text-sm">
+                                        Created: {formatDate(request.createdAt)}
+                                    </p>
+                                    <p className="text-muted mt-1 text-sm">
+                                        {request.itemCount}{" "}
+                                        {request.itemCount === 1 ? "item" : "items"}
+                                    </p>
+                                </div>
+
+                                <span className="inline-flex self-start rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-sm font-medium text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300">
+                                    Owner Review
+                                </span>
+                            </div>
+
+                            <div className="border-t border-[var(--border)] p-5">
+                                <Link
+                                    href={`/storekeeper/stock-out/${request.id}`}
+                                    className="secondary-action w-full text-center"
+                                >
+                                    Open Request
+                                </Link>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
 export type OwnerWorkflowView =
     | "needs-attention"
     | "awaiting-accountant"
     | "awaiting-receipt"
-    | "recently-completed";
+    | "recently-completed"
+    | "all-purchase-requests";
 
 export default function OwnerWorkflow({
     view,
@@ -358,6 +534,7 @@ export default function OwnerWorkflow({
                 first.receivedAt ?? first.createdAt
             )
         );
+    const allPurchaseRequests = requests.filter(matchesSearch);
     const pageDetails = {
               "needs-attention": {
                   title: "Needs Attention",
@@ -377,6 +554,11 @@ export default function OwnerWorkflow({
                   title: "Recently Completed",
                   description:
                       "Purchase requests recently received into inventory.",
+              },
+              "all-purchase-requests": {
+                  title: "All Purchase Requests",
+                  description:
+                      "Every purchase request in the system, from creation to completion.",
               },
           }[view];
 
@@ -433,13 +615,18 @@ export default function OwnerWorkflow({
                 {!errorMessage && (
                     <>
                         {view === "needs-attention" && (
-                            <RequestSection
-                                id="needs-attention"
-                                title="Needs Attention"
-                                description="Escalations, Accountant rejections, and receipt issues."
-                                emptyMessage="No requests currently need attention."
-                                requests={needsAttention}
-                            />
+                            <>
+                                <RequestSection
+                                    id="purchase-request-attention"
+                                    title="Purchase Requests"
+                                    description="Escalations, Accountant rejections, and receipt issues."
+                                    emptyMessage="No purchase requests currently need attention."
+                                    requests={needsAttention}
+                                />
+                                <StockEscalationsSection
+                                    searchQuery={searchQuery}
+                                />
+                            </>
                         )}
                         {view === "awaiting-accountant" && (
                             <RequestSection
@@ -466,6 +653,15 @@ export default function OwnerWorkflow({
                                 description="Purchase requests recently received into inventory."
                                 emptyMessage="No purchase requests have been completed yet."
                                 requests={recentlyCompleted}
+                            />
+                        )}
+                        {view === "all-purchase-requests" && (
+                            <RequestSection
+                                id="all-purchase-requests"
+                                title="All Purchase Requests"
+                                description="Every purchase request in the system."
+                                emptyMessage="No purchase requests have been created yet."
+                                requests={allPurchaseRequests}
                             />
                         )}
                     </>

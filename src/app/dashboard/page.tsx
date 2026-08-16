@@ -302,6 +302,7 @@ export default function DashboardPage() {
                     recentlyCompleted: requests.filter(
                         (request) => request.status === "received"
                     ).length,
+                    purchaseRequestAll: requests.length,
                 });
             }
             }
@@ -377,6 +378,7 @@ export default function DashboardPage() {
                         escalatedStockOut: stockOutRequests.filter(
                             (request) => request.status === "escalated_owner"
                         ).length,
+                        stockOutAll: stockOutRequests.length,
                     }));
                 }
             }
@@ -696,7 +698,10 @@ export default function DashboardPage() {
                             <WorkflowWidget
                                 href="/owner/needs-attention"
                                 title="Needs Attention"
-                                count={workflowCounts.needsAttention ?? 0}
+                                count={
+                                    (workflowCounts.needsAttention ?? 0) +
+                                    (workflowCounts.escalatedStockOut ?? 0)
+                                }
                                 description="Escalations, rejections, and receipt issues"
                                 tone="attention"
                             />
@@ -726,11 +731,11 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
-                                href="/storekeeper/stock-out?tab=escalated"
-                                title="Stock-Out Escalations"
-                                count={workflowCounts.escalatedStockOut ?? 0}
-                                description="Consumable requests needing your decision"
-                                tone="attention"
+                                href="/storekeeper/stock-out?tab=all"
+                                title="All Stock Requests"
+                                count={workflowCounts.stockOutAll ?? 0}
+                                description="Every consumable request in the system"
+                                tone="neutral"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/stock-out?tab=pending"
@@ -771,11 +776,11 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
-                                href="/procurement?tab=all"
-                                title="My Purchases"
-                                count={workflowCounts.procurementAll ?? 0}
-                                description="Purchase requests you created"
-                                tone="active"
+                                href="/owner/purchase-requests"
+                                title="All Purchase Requests"
+                                count={workflowCounts.purchaseRequestAll ?? 0}
+                                description="Every purchase request in the system"
+                                tone="neutral"
                             />
                             <WorkflowWidget
                                 href="/owner/awaiting-accountant"
