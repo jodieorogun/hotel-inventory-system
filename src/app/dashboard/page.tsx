@@ -694,17 +694,7 @@ export default function DashboardPage() {
 
                 {profile?.role === "owner" && (
                     <>
-                        <div className="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
-                            <WorkflowWidget
-                                href="/owner/needs-attention"
-                                title="Needs Attention"
-                                count={
-                                    (workflowCounts.needsAttention ?? 0) +
-                                    (workflowCounts.escalatedStockOut ?? 0)
-                                }
-                                description="Escalations, rejections, and receipt issues"
-                                tone="attention"
-                            />
+                        <div className="mt-8 sm:mt-10">
                             <WorkflowWidget
                                 href="/inventory"
                                 title="Inventory"

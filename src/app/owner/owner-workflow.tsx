@@ -588,12 +588,14 @@ export default function OwnerWorkflow({
                         >
                             View Inventory
                         </Link>
-                        <Link
-                            href="/procurement/new"
-                            className="primary-action text-center"
-                        >
-                            New Purchase Request
-                        </Link>
+                        {view !== "needs-attention" && (
+                            <Link
+                                href="/procurement/new"
+                                className="primary-action text-center"
+                            >
+                                New Purchase Request
+                            </Link>
+                        )}
                     </div>
                 </div>
 
