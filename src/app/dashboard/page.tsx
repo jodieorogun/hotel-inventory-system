@@ -483,10 +483,10 @@ export default function DashboardPage() {
                     className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
                 >
                     <span
-                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 text-xl font-semibold sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl ${
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-semibold sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl ${
                             reviewCount > 0
-                                ? "border-red-500 bg-red-50 text-red-700 dark:border-red-400 dark:bg-red-950 dark:text-red-300"
-                                : "border-transparent bg-[var(--accent-soft)] text-[var(--accent)]"
+                                ? "bg-red-600 text-white dark:bg-red-500"
+                                : "bg-[var(--accent-soft)] text-[var(--accent)]"
                         }`}
                     >
                         {reviewCount}
