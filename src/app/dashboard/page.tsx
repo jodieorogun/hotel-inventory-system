@@ -482,7 +482,13 @@ export default function DashboardPage() {
                     href={reviewHref}
                     className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
                 >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-xl font-semibold text-[var(--accent)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl">
+                    <span
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 text-xl font-semibold sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl ${
+                            reviewCount > 0
+                                ? "border-red-500 bg-red-50 text-red-700 dark:border-red-400 dark:bg-red-950 dark:text-red-300"
+                                : "border-transparent bg-[var(--accent-soft)] text-[var(--accent)]"
+                        }`}
+                    >
                         {reviewCount}
                     </span>
 
@@ -695,13 +701,27 @@ export default function DashboardPage() {
                 {profile?.role === "owner" && (
                     <>
                         <div className="mt-8 sm:mt-10">
-                            <WorkflowWidget
+                            <Link
                                 href="/inventory"
-                                title="Inventory"
-                                count={inventoryItemCount}
-                                description="Items currently tracked in stock"
-                                tone="neutral"
-                            />
+                                className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
+                            >
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-subtle)] text-xl font-semibold text-[var(--foreground)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl">
+                                    {inventoryItemCount}
+                                </span>
+
+                                <div className="min-w-0 flex-1">
+                                    <h2 className="text-lg font-semibold sm:text-xl">
+                                        Inventory
+                                    </h2>
+                                    <p className="text-muted mt-1 text-sm">
+                                        Items currently tracked in stock
+                                    </p>
+                                </div>
+
+                                <span aria-hidden="true" className="text-muted text-xl">
+                                    →
+                                </span>
+                            </Link>
                         </div>
 
                         <DashboardSection
