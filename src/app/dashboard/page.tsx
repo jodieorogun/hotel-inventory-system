@@ -482,13 +482,7 @@ export default function DashboardPage() {
                     href={reviewHref}
                     className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
                 >
-                    <span
-                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-semibold sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl ${
-                            reviewCount > 0
-                                ? "bg-red-600 text-white dark:bg-red-500"
-                                : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                        }`}
-                    >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-xl font-semibold text-[var(--accent)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl">
                         {reviewCount}
                     </span>
 
