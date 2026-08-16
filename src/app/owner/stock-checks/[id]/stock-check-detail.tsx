@@ -172,7 +172,53 @@ export default function StockCheckDetail({
         }
 
         return (
-            <div className="surface-card mt-4 overflow-x-auto">
+            <>
+                <div className="mt-4 grid gap-4 sm:hidden">
+                    {rows.map((item) => {
+                        const expected = Number(item.expected_quantity);
+                        const physical = Number(item.physical_quantity);
+                        const variance = Number(item.variance);
+
+                        return (
+                            <article key={item.id} className="surface-card p-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <h3 className="min-w-0 font-semibold">
+                                        {item.item_name}
+                                    </h3>
+                                    <span
+                                        className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${
+                                            variance < 0
+                                                ? "bg-[var(--danger-soft)] text-[var(--danger)]"
+                                                : variance > 0
+                                                  ? "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                                  : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                        }`}
+                                    >
+                                        {variance > 0 ? "+" : ""}
+                                        {formatStockCheckQuantity(variance)}
+                                    </span>
+                                </div>
+
+                                <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-4 text-sm">
+                                    <div>
+                                        <dt className="text-muted">System quantity</dt>
+                                        <dd className="mt-1 font-medium">
+                                            {formatStockCheckQuantity(expected)} {pluralizeUnit(item.unit, expected)}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-muted">Physical count</dt>
+                                        <dd className="mt-1 font-medium">
+                                            {formatStockCheckQuantity(physical)} {pluralizeUnit(item.unit, physical)}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </article>
+                        );
+                    })}
+                </div>
+
+                <div className="surface-card mt-4 hidden overflow-x-auto sm:block">
                 <table className="w-full min-w-175">
                     <thead className="bg-[var(--surface-subtle)]">
                         <tr>
@@ -214,7 +260,8 @@ export default function StockCheckDetail({
                         })}
                     </tbody>
                 </table>
-            </div>
+                </div>
+            </>
         );
     }
 

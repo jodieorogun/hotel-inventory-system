@@ -1074,7 +1074,7 @@ export default function RequestDetail({
 
             {ownerEditOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
                     role="presentation"
                 >
                     <div
@@ -1229,7 +1229,7 @@ export default function RequestDetail({
                             ))}
                         </div>
 
-                        <div className="mt-6 grid grid-cols-2 gap-3">
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
                             <button
                                 type="button"
                                 onClick={() => setOwnerEditOpen(false)}
@@ -1255,7 +1255,7 @@ export default function RequestDetail({
 
             {rejectDialogOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
                     role="presentation"
                 >
                     <form
@@ -1263,7 +1263,7 @@ export default function RequestDetail({
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="reject-dialog-title"
-                        className="surface-card w-full max-w-lg p-6 sm:p-7"
+                        className="surface-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto p-6 sm:p-7"
                     >
                         <h2
                             id="reject-dialog-title"
@@ -1305,7 +1305,7 @@ export default function RequestDetail({
                             </p>
                         )}
 
-                        <div className="mt-6 grid grid-cols-2 gap-3">
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
                             <button
                                 type="button"
                                 onClick={() => setRejectDialogOpen(false)}

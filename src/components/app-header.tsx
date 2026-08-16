@@ -164,7 +164,9 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
             ) : (
                 <Link href="/dashboard" className="dashboard-link">
                     <span aria-hidden="true">←</span>
-                    Return to Dashboard
+                    <span className="hidden min-[360px]:inline">
+                        Return to Dashboard
+                    </span>
                 </Link>
             )}
 
@@ -205,7 +207,7 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                 {menuOpen && (
                     <div
                         role="menu"
-                        className="absolute right-0 z-20 mt-2 w-72 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+                        className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
                     >
                         <div className="border-b border-[var(--border)] px-4 py-4">
                             <p className="truncate font-semibold text-[var(--foreground)]">
