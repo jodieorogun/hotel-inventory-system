@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -133,6 +134,22 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
         };
     }, []);
 
+    useEffect(() => {
+        if (
+            !menuOpen ||
+            !window.matchMedia("(max-width: 639px)").matches
+        ) {
+            return;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [menuOpen]);
+
     async function handleLogout() {
         setLoggingOut(true);
 
@@ -170,7 +187,10 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                 </Link>
             )}
 
-            <div ref={menuRef} className="relative z-50 shrink-0">
+            <div
+                ref={menuRef}
+                className="relative z-50 flex shrink-0 flex-col items-end"
+            >
                 <button
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
@@ -205,10 +225,24 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                 </button>
 
                 {menuOpen && (
+                    <button
+                        type="button"
+                        aria-label="Close account menu"
+                        onClick={() => setMenuOpen(false)}
+                        className="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[1px] sm:hidden"
+                    />
+                )}
+
+                {menuOpen && (
                     <div
                         role="menu"
-                        className="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-6rem)] w-[min(18rem,calc(100vw-2rem))] overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+                        className="fixed inset-x-3 bottom-3 z-50 max-h-[calc(100dvh-1.5rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface)] shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[3.25rem] sm:max-h-[calc(100dvh-6rem)] sm:w-72 sm:rounded-2xl"
                     >
+                        <div
+                            aria-hidden="true"
+                            className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-[var(--border-strong)] sm:hidden"
+                        />
+
                         <div className="border-b border-[var(--border)] px-4 py-4">
                             <p className="truncate font-semibold text-[var(--foreground)]">
                                 {profile?.name ?? "Hotel staff"}
@@ -304,6 +338,27 @@ export default function AppHeader({ children }: { children?: ReactNode }) {
                         </button>
                     </div>
                 )}
+
+                <Link
+                    href="/dashboard"
+                    aria-label="JORO Inventory dashboard"
+                    className="focus-ring relative mt-3 block h-7 w-20 rounded-md sm:h-8 sm:w-24"
+                >
+                    <Image
+                        src="/brand/joro-logo-light.png"
+                        alt=""
+                        fill
+                        sizes="96px"
+                        className="object-contain dark:hidden"
+                    />
+                    <Image
+                        src="/brand/joro-logo-dark.png"
+                        alt=""
+                        fill
+                        sizes="96px"
+                        className="hidden object-contain dark:block"
+                    />
+                </Link>
             </div>
         </header>
     );
