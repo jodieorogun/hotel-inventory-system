@@ -604,6 +604,7 @@ export default function ReceiptDetail({
 
     const hasBeenReceived = request.status === "received";
     const hasReceiptIssue = request.status === "receipt_issue";
+    const isBlindCount = viewerRole === "storekeeper";
     const statusDetails = hasBeenReceived
         ? {
               label: "Received",
@@ -633,7 +634,9 @@ export default function ReceiptDetail({
                             Receipt for Request #{request.id}
                         </h1>
                         <p className="page-description mt-2">
-                            Compare these details with the goods that physically arrived.
+                            {isBlindCount
+                                ? "Count the goods that physically arrived in the store room."
+                                : "Compare these details with the goods that physically arrived."}
                         </p>
                     </div>
 
@@ -656,8 +659,10 @@ export default function ReceiptDetail({
                             Receipt Issue
                         </h2>
                         <p className="mt-2 whitespace-pre-wrap">
-                            {request.receiptIssueReason ??
-                                "A receipt issue was reported."}
+                            {isBlindCount
+                                ? "The counted quantities did not match the approved request."
+                                : request.receiptIssueReason ??
+                                  "A receipt issue was reported."}
                         </p>
                         <div className="text-muted mt-4 text-sm">
                             <p>
@@ -683,7 +688,9 @@ export default function ReceiptDetail({
                                 Previous Receipt Issue — Resolved
                             </h2>
                             <p className="mt-2 whitespace-pre-wrap">
-                                {request.receiptIssueReason}
+                                {isBlindCount
+                                    ? "A previous count did not match the approved request."
+                                    : request.receiptIssueReason}
                             </p>
                             <div className="text-muted mt-4 text-sm">
                                 <p>
@@ -743,7 +750,7 @@ export default function ReceiptDetail({
                 </dl>
 
                 <RequestHistory
-                    entries={historyEntries.length > 0 ? historyEntries : [
+                    entries={(historyEntries.length > 0 ? historyEntries : [
                         {
                             action: "Requested",
                             person: request.requestedBy,
@@ -836,13 +843,24 @@ export default function ReceiptDetail({
                                   },
                               ]
                             : []),
-                    ]}
+                    ]).map((entry) =>
+                        isBlindCount &&
+                        entry.action.toLowerCase().includes("receipt issue")
+                            ? { ...entry, detail: undefined }
+                            : entry
+                    )}
                 />
 
                 <div className="surface-card mt-8 overflow-hidden">
-                    <div className="hidden grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)] gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
+                    <div
+                        className={`hidden gap-6 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid ${
+                            isBlindCount
+                                ? "grid-cols-[minmax(0,1fr)_minmax(18rem,1fr)]"
+                                : "grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)]"
+                        }`}
+                    >
                         <span>Item</span>
-                        <span>Expected</span>
+                        {!isBlindCount && <span>Expected</span>}
                         <span>Actual Received</span>
                     </div>
 
@@ -883,37 +901,45 @@ export default function ReceiptDetail({
                             return (
                                 <div
                                     key={line.id}
-                                    className="grid gap-4 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)] sm:items-start sm:gap-6"
+                                    className={`grid gap-4 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:items-start sm:gap-6 ${
+                                        isBlindCount
+                                            ? "sm:grid-cols-[minmax(0,1fr)_minmax(18rem,1fr)]"
+                                            : "sm:grid-cols-[minmax(0,1fr)_minmax(11rem,0.7fr)_minmax(18rem,1fr)]"
+                                    }`}
                                 >
                                     <div>
                                         <p className="font-medium">{line.itemName}</p>
-                                        <p className="text-muted mt-1 text-sm">
-                                            Ordered: {formatQuantity(
-                                                line.quantity,
-                                                line.purchaseUnit
-                                            )}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-muted text-xs font-semibold uppercase tracking-wide sm:hidden">
-                                            Expected
-                                        </p>
-                                        <p className="mt-1 font-medium sm:mt-0">
-                                            {formatQuantity(expectedStock, line.unit)}
-                                        </p>
-                                        {usesPackaging && (
-                                            <p className="text-muted mt-1 text-xs">
-                                                {formatQuantity(
+                                        {!isBlindCount && (
+                                            <p className="text-muted mt-1 text-sm">
+                                                Ordered: {formatQuantity(
                                                     line.quantity,
                                                     line.purchaseUnit
-                                                )} × {formatQuantity(
-                                                    line.unitsPerPurchaseUnit,
-                                                    line.unit
                                                 )}
                                             </p>
                                         )}
                                     </div>
+
+                                    {!isBlindCount && (
+                                        <div>
+                                            <p className="text-muted text-xs font-semibold uppercase tracking-wide sm:hidden">
+                                                Expected
+                                            </p>
+                                            <p className="mt-1 font-medium sm:mt-0">
+                                                {formatQuantity(expectedStock, line.unit)}
+                                            </p>
+                                            {usesPackaging && (
+                                                <p className="text-muted mt-1 text-xs">
+                                                    {formatQuantity(
+                                                        line.quantity,
+                                                        line.purchaseUnit
+                                                    )} × {formatQuantity(
+                                                        line.unitsPerPurchaseUnit,
+                                                        line.unit
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {request.status === "approved" ? (
                                         <div>
@@ -1009,13 +1035,15 @@ export default function ReceiptDetail({
                                                             {formatQuantity(receivedStock, line.unit)}
                                                         </span>
                                                     </p>
-                                                    <p className={difference === 0 ? "text-muted mt-1" : "mt-1 text-[var(--danger)]"}>
-                                                        Difference: {difference === 0
-                                                            ? "No difference"
-                                                            : difference! < 0
-                                                              ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
-                                                              : `${formatQuantity(difference!, line.unit)} extra`}
-                                                    </p>
+                                                    {!isBlindCount && (
+                                                        <p className={difference === 0 ? "text-muted mt-1" : "mt-1 text-[var(--danger)]"}>
+                                                            Difference: {difference === 0
+                                                                ? "No difference"
+                                                                : difference! < 0
+                                                                  ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
+                                                                  : `${formatQuantity(difference!, line.unit)} extra`}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1042,13 +1070,15 @@ export default function ReceiptDetail({
                                                             line.unit
                                                         )}
                                                     </p>
-                                                    <p className={difference === 0 ? "text-muted mt-1 text-sm" : "mt-1 text-sm text-[var(--danger)]"}>
-                                                        Difference: {difference === 0
-                                                            ? "No difference"
-                                                            : difference! < 0
-                                                              ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
-                                                              : `${formatQuantity(difference!, line.unit)} extra`}
-                                                    </p>
+                                                    {!isBlindCount && (
+                                                        <p className={difference === 0 ? "text-muted mt-1 text-sm" : "mt-1 text-sm text-[var(--danger)]"}>
+                                                            Difference: {difference === 0
+                                                                ? "No difference"
+                                                                : difference! < 0
+                                                                  ? `${formatQuantity(Math.abs(difference!), line.unit)} missing`
+                                                                  : `${formatQuantity(difference!, line.unit)} extra`}
+                                                        </p>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
