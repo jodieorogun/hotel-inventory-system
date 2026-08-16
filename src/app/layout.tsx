@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import PreventNumberInputScroll from "@/components/prevent-number-input-scroll";
 import AccountAccessGuard from "@/components/account-access-guard";
 import "./globals.css";
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <PreventNumberInputScroll />
         <AccountAccessGuard />
         {children}
+        <Analytics />
       </body>
     </html>
   );
