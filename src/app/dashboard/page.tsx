@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { supabase } from "@/lib/supabase";
+import {
+    formatStockCheckDate,
+    getNextStockCheckDate,
+    isStockCheckDue,
+} from "@/lib/stock-checks";
 
 type UserProfile = {
     name: string;
@@ -106,6 +111,57 @@ function WorkflowWidget({
     );
 }
 
+function StockCheckWidget({
+    lastCompletedAt,
+}: {
+    lastCompletedAt: string | null;
+}) {
+    const due = isStockCheckDue(lastCompletedAt);
+    const nextCheckDate = lastCompletedAt
+        ? getNextStockCheckDate(lastCompletedAt)
+        : null;
+
+    return (
+        <Link
+            href="/owner/stock-checks"
+            className="dashboard-widget surface-card interactive-card relative overflow-hidden p-7 lg:p-8"
+        >
+            <span
+                aria-hidden="true"
+                className={`absolute inset-x-0 top-0 h-1 ${
+                    due
+                        ? "bg-amber-400 dark:bg-amber-300"
+                        : "bg-emerald-500 dark:bg-emerald-400"
+                }`}
+            />
+            <div className="flex items-start justify-between gap-4">
+                <h2 className="text-xl font-semibold">Stock Check</h2>
+                <span className="text-muted flex shrink-0 items-center gap-2 text-xs">
+                    <span
+                        aria-hidden="true"
+                        className={`h-2 w-2 rounded-full ${
+                            due
+                                ? "bg-amber-400 dark:bg-amber-300"
+                                : "bg-emerald-500 dark:bg-emerald-400"
+                        }`}
+                    />
+                    {due ? "Due" : "Up to date"}
+                </span>
+            </div>
+            <p className="mt-5 font-semibold">
+                {lastCompletedAt
+                    ? `Last checked ${formatStockCheckDate(lastCompletedAt)}`
+                    : "No stock checks completed"}
+            </p>
+            <p className="text-muted mt-1 text-sm">
+                {nextCheckDate
+                    ? `Next weekly check: ${formatStockCheckDate(nextCheckDate)}`
+                    : "The first stock check is due now"}
+            </p>
+        </Link>
+    );
+}
+
 function DashboardSection({
     title,
     description,
@@ -138,6 +194,7 @@ export default function DashboardPage() {
         {}
     );
     const [inventoryItemCount, setInventoryItemCount] = useState(0);
+    const [lastStockCheckAt, setLastStockCheckAt] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [greetingIndex, setGreetingIndex] = useState(0);
 
@@ -260,6 +317,25 @@ export default function DashboardPage() {
                     );
                 } else {
                     setInventoryItemCount(count ?? 0);
+                }
+            }
+
+            if (data.role === "owner") {
+                const { data: stockCheckData, error: stockCheckError } =
+                    await supabase
+                        .from("stock_checks")
+                        .select("completed_at")
+                        .order("completed_at", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                if (stockCheckError) {
+                    console.error(
+                        "Error loading latest stock check:",
+                        stockCheckError
+                    );
+                } else {
+                    setLastStockCheckAt(stockCheckData?.completed_at ?? null);
                 }
             }
 
@@ -636,6 +712,7 @@ export default function DashboardPage() {
                             title="Stock"
                             description="Goods coming into and going out of the store room"
                         >
+                            <StockCheckWidget lastCompletedAt={lastStockCheckAt} />
                             <Link
                                 href="/owner/stock-out/new"
                                 className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
