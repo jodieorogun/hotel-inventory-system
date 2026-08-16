@@ -10,6 +10,7 @@ import RequestListFilters, {
 } from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
 import { formatQuantity } from "@/lib/units";
+import { loadVisibleUserNames } from "@/lib/user-names";
 
 type StockRequest = {
     id: number;
@@ -107,16 +108,16 @@ export default function StorekeeperStockOutPage() {
 
             const requestIds = requestRows.map((request) => request.id);
             const requesterIds = [...new Set(requestRows.map((request) => request.requested_by))];
-            const [linesResult, usersResult] = await Promise.all([
+            const [linesResult, usersById] = await Promise.all([
                 supabase
                     .from("stock_out_request_items")
                     .select("request_id, item_id, requested_quantity")
                     .in("request_id", requestIds),
-                supabase.from("users").select("id, name").in("id", requesterIds),
+                loadVisibleUserNames(requesterIds),
             ]);
 
-            if (linesResult.error || usersResult.error) {
-                console.error("Error loading stock-out details:", linesResult.error ?? usersResult.error);
+            if (linesResult.error) {
+                console.error("Error loading stock-out details:", linesResult.error);
                 if (!ignore) {
                     setErrorMessage("Could not load stock-out details.");
                     setLoading(false);
@@ -131,8 +132,6 @@ export default function StorekeeperStockOutPage() {
                 .select("id, name, unit")
                 .in("id", itemIds);
             const itemsById = new Map((itemData ?? []).map((item) => [item.id, item]));
-            const usersById = new Map((usersResult.data ?? []).map((person) => [person.id, person.name]));
-
             const formattedRequests = requestRows.map((request) => {
                 const requestLines = lines.filter((line) => line.request_id === request.id);
                 const shown = requestLines.slice(0, 3).map((line) => {

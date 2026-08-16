@@ -10,6 +10,7 @@ import {
     hasPurchaseConversion,
     stockEquivalent,
 } from "@/lib/units";
+import { isValidUnitLabel } from "@/lib/item-validation";
 
 type Item = {
     id: number;
@@ -219,12 +220,14 @@ export default function NewProcurementRequestPage() {
         if (
             !name ||
             !category ||
-            !unit ||
-            !purchaseUnit ||
+            !isValidUnitLabel(unit) ||
+            !isValidUnitLabel(purchaseUnit) ||
             !Number.isInteger(unitsPerPurchaseUnit) ||
             unitsPerPurchaseUnit < 1
         ) {
-            setErrorMessage("Please complete the new item fields.");
+            setErrorMessage(
+                "Complete every field using valid units such as bottle, roll or pack."
+            );
             return;
         }
 
@@ -317,16 +320,18 @@ export default function NewProcurementRequestPage() {
 
         const hasInvalidNumbers = requestLines.some(
             (line) =>
+                !Number.isInteger(Number(line.quantity)) ||
                 Number(line.quantity) <= 0 ||
+                !Number.isFinite(Number(line.unitPrice)) ||
                 Number(line.unitPrice) < 0 ||
-                !line.purchaseUnit.trim() ||
+                !isValidUnitLabel(line.purchaseUnit) ||
                 !Number.isInteger(line.unitsPerPurchaseUnit) ||
                 line.unitsPerPurchaseUnit < 1
         );
 
         if (hasInvalidNumbers) {
             setErrorMessage(
-                "Quantity must be above 0 and unit price cannot be negative."
+                "Quantity must be a whole number above 0, and unit price cannot be negative."
             );
             return;
         }
@@ -511,15 +516,17 @@ export default function NewProcurementRequestPage() {
                                 </div>
 
                                 <div>
-                                    <label className="form-label">
+                                    <label className="form-label" htmlFor={`quantity-${index}`}>
                                         Quantity{selectedItem
                                             ? ` (${line.purchaseUnit})`
                                             : ""}
                                     </label>
 
                                     <input
+                                        id={`quantity-${index}`}
                                         type="number"
                                         min="1"
+                                        step="1"
                                         value={line.quantity}
                                         onChange={(event) =>
                                             updateRequestLine(
@@ -552,13 +559,15 @@ export default function NewProcurementRequestPage() {
                                 </div>
 
                                 <div>
-                                    <label className="form-label">
+                                    <label className="form-label" htmlFor={`unit-price-${index}`}>
                                         Price per {line.purchaseUnit || "purchase unit"}
                                     </label>
 
                                     <input
+                                        id={`unit-price-${index}`}
                                         type="number"
                                         min="0"
+                                        step="0.01"
                                         value={line.unitPrice}
                                         onChange={(event) =>
                                             updateRequestLine(
@@ -608,8 +617,9 @@ export default function NewProcurementRequestPage() {
 
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <label className="form-label">Name</label>
+                                            <label className="form-label" htmlFor={`new-item-name-${index}`}>Name</label>
                                             <input
+                                                id={`new-item-name-${index}`}
                                                 type="text"
                                                 value={newItemForm.name}
                                                 onChange={(event) =>
@@ -624,8 +634,9 @@ export default function NewProcurementRequestPage() {
                                         </div>
 
                                         <div>
-                                            <label className="form-label">Category</label>
+                                            <label className="form-label" htmlFor={`new-item-category-${index}`}>Category</label>
                                             <input
+                                                id={`new-item-category-${index}`}
                                                 type="text"
                                                 value={newItemForm.category}
                                                 onChange={(event) =>
@@ -640,8 +651,9 @@ export default function NewProcurementRequestPage() {
                                         </div>
 
                                         <div>
-                                            <label className="form-label">Stock unit</label>
+                                            <label className="form-label" htmlFor={`new-item-unit-${index}`}>Stock unit</label>
                                             <input
+                                                id={`new-item-unit-${index}`}
                                                 type="text"
                                                 value={newItemForm.unit}
                                                 onChange={(event) =>
@@ -656,8 +668,9 @@ export default function NewProcurementRequestPage() {
                                         </div>
 
                                         <div>
-                                            <label className="form-label">Purchase unit</label>
+                                            <label className="form-label" htmlFor={`new-item-purchase-unit-${index}`}>Purchase unit</label>
                                             <input
+                                                id={`new-item-purchase-unit-${index}`}
                                                 type="text"
                                                 value={newItemForm.purchaseUnit}
                                                 onChange={(event) =>
@@ -673,10 +686,11 @@ export default function NewProcurementRequestPage() {
                                         </div>
 
                                         <div>
-                                            <label className="form-label">
+                                            <label className="form-label" htmlFor={`new-item-conversion-${index}`}>
                                                 Stock units in one purchase unit
                                             </label>
                                             <input
+                                                id={`new-item-conversion-${index}`}
                                                 type="number"
                                                 min="1"
                                                 step="1"

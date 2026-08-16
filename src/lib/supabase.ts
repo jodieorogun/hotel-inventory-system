@@ -9,4 +9,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
     );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        // Password setup links are processed explicitly by /setup-password.
+        // This prevents an existing signed-in account from winning a race
+        // against the account encoded in an invite or recovery link.
+        detectSessionInUrl: false,
+    },
+});
