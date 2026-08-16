@@ -186,10 +186,6 @@ export default function InventoryPage() {
                                     Stock Unit
                                 </th>
 
-                                <th className="px-7 py-5 text-left">
-                                    Purchased As
-                                </th>
-
                                 <th className="px-7 py-5 text-right">
                                     History
                                 </th>
@@ -223,16 +219,6 @@ export default function InventoryPage() {
                                         {item.unit}
                                     </td>
 
-                                    <td className="px-7 py-5 text-[var(--muted-strong)]">
-                                        {hasPurchaseConversion(
-                                            item.unit,
-                                            item.purchase_unit,
-                                            Number(item.units_per_purchase_unit)
-                                        )
-                                            ? `1 ${item.purchase_unit} = ${item.units_per_purchase_unit} ${item.unit}`
-                                            : "—"}
-                                    </td>
-
                                     <td className="px-7 py-5 text-right">
                                         <Link
                                             href={`/inventory/${item.id}`}
@@ -246,7 +232,7 @@ export default function InventoryPage() {
                             {filteredItems.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={5}
                                         className="text-muted px-7 py-10 text-center"
                                     >
                                         No inventory items match that search.
