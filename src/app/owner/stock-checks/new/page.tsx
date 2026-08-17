@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { formatStockCheckQuantity } from "@/lib/stock-checks";
 import { pluralizeUnit } from "@/lib/units";
 import {
+    capitalizeInputWords,
     hasDuplicateItemName,
     isValidUnitLabel,
     normalizeItemName,
@@ -236,10 +237,10 @@ export default function NewStockCheckPage() {
                 physical_quantity: Number(physicalCounts[item.id]),
             })),
             unlisted_items: completeUnlistedItems.map((item) => ({
-                name: item.name.trim(),
-                category: item.category.trim(),
-                unit: item.unit.trim(),
-                purchase_unit: item.purchaseUnit.trim(),
+                name: capitalizeInputWords(item.name),
+                category: capitalizeInputWords(item.category),
+                unit: capitalizeInputWords(item.unit),
+                purchase_unit: capitalizeInputWords(item.purchaseUnit),
                 units_per_purchase_unit: Number(item.unitsPerPurchaseUnit),
                 physical_quantity: Number(item.physicalQuantity),
             })),
@@ -443,6 +444,14 @@ export default function NewStockCheckPage() {
                                                     onChange={(event) =>
                                                         updateUnlistedItem(item.id, "name", event.target.value)
                                                     }
+                                                    onBlur={() =>
+                                                        updateUnlistedItem(
+                                                            item.id,
+                                                            "name",
+                                                            capitalizeInputWords(item.name)
+                                                        )
+                                                    }
+                                                    autoCapitalize="words"
                                                     className="form-control"
                                                     placeholder="e.g. Hand Soap"
                                                     required
@@ -459,6 +468,14 @@ export default function NewStockCheckPage() {
                                                     onChange={(event) =>
                                                         updateUnlistedItem(item.id, "category", event.target.value)
                                                     }
+                                                    onBlur={() =>
+                                                        updateUnlistedItem(
+                                                            item.id,
+                                                            "category",
+                                                            capitalizeInputWords(item.category)
+                                                        )
+                                                    }
+                                                    autoCapitalize="words"
                                                     className="form-control"
                                                     placeholder="e.g. Cleaning"
                                                     required
@@ -475,6 +492,14 @@ export default function NewStockCheckPage() {
                                                     onChange={(event) =>
                                                         updateUnlistedItem(item.id, "unit", event.target.value)
                                                     }
+                                                    onBlur={() =>
+                                                        updateUnlistedItem(
+                                                            item.id,
+                                                            "unit",
+                                                            capitalizeInputWords(item.unit)
+                                                        )
+                                                    }
+                                                    autoCapitalize="words"
                                                     className="form-control"
                                                     placeholder="e.g. bottle"
                                                     required
@@ -495,6 +520,16 @@ export default function NewStockCheckPage() {
                                                             event.target.value
                                                         )
                                                     }
+                                                    onBlur={() =>
+                                                        updateUnlistedItem(
+                                                            item.id,
+                                                            "purchaseUnit",
+                                                            capitalizeInputWords(
+                                                                item.purchaseUnit
+                                                            )
+                                                        )
+                                                    }
+                                                    autoCapitalize="words"
                                                     className="form-control"
                                                     placeholder="e.g. carton"
                                                     required

@@ -56,7 +56,7 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
 
 const decisionDetails = {
     pending: {
-        label: "Pending",
+        label: "To Review",
         className:
             "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
@@ -291,9 +291,9 @@ export default function AccountantRequestsPage() {
                 <AppHeader />
 
                 <div>
-                    <h1 className="page-title">Purchase Approvals</h1>
+                    <h1 className="page-title">Purchase Requests</h1>
                     <p className="page-description mt-2">
-                        Review pending requests and find previous decisions.
+                        Review new requests and find previous decisions.
                     </p>
                 </div>
 
@@ -306,7 +306,7 @@ export default function AccountantRequestsPage() {
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "pending", label: "Pending" },
+                            { value: "pending", label: "To Review" },
                             { value: "approved", label: "Approved" },
                             { value: "rejected", label: "Rejected" },
                             { value: "all", label: "All" },

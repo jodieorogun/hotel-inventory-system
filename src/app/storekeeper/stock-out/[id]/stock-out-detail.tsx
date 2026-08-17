@@ -345,7 +345,7 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
                                 ? "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300"
                                 : "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                     }`}>
-                        {request.status === "pending_storekeeper" ? "Pending" : request.status === "issued" ? "Issued" : request.status === "escalated_owner" ? "Owner Review" : "Voided"}
+                        {request.status === "pending_storekeeper" ? "To Hand Out" : request.status === "issued" ? "Handed Out" : request.status === "escalated_owner" ? "Owner Review" : "Voided"}
                     </span>
                 </div>
 
@@ -365,7 +365,7 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
 
                 <div className="surface-card mt-8 overflow-hidden">
                     <div className="hidden grid-cols-[1fr_11rem_11rem_13rem] gap-5 border-b border-[var(--border)] px-6 py-4 text-sm font-semibold text-[var(--muted-strong)] sm:grid">
-                        <span>Item</span><span>Available</span><span>Requested</span><span>Actual Issued</span>
+                        <span>Item</span><span>Available</span><span>Requested</span><span>Handed Out</span>
                     </div>
                     {request.lines.map((line) => (
                         <div key={line.id} className="grid gap-3 border-b border-[var(--border)] px-6 py-5 last:border-b-0 sm:grid-cols-[1fr_11rem_11rem_13rem] sm:items-center sm:gap-5">
@@ -412,7 +412,7 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
                         >
                             {viewerRole === "owner" ? "Void Request" : "Escalate to Owner"}
                         </button>
-                        <button type="button" onClick={confirmIssue} disabled={updating} className="primary-action">{updating ? "Confirming..." : "Confirm Stock Issued"}</button>
+                        <button type="button" onClick={confirmIssue} disabled={updating} className="primary-action">{updating ? "Confirming..." : "Confirm Handout"}</button>
                     </div>
                 )}
 
@@ -422,7 +422,7 @@ export default function StockOutDetail({ requestId }: { requestId: string }) {
                             Return to Storekeeper
                         </button>
                         <button type="button" onClick={confirmIssue} disabled={updating} className="primary-action">
-                            {updating ? "Updating..." : "Confirm Stock Issued"}
+                            {updating ? "Updating..." : "Confirm Handout"}
                         </button>
                         <button type="button" onClick={() => handleOwnerAction("void")} disabled={updating} className="secondary-action border-[var(--danger-border)] text-[var(--danger)]">
                             Void Request

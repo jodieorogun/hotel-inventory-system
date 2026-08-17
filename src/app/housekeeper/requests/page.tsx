@@ -54,11 +54,11 @@ function formatDate(value: string) {
 
 const statusDetails: Record<string, { label: string; className: string }> = {
     pending_storekeeper: {
-        label: "Awaiting Storekeeper",
+        label: "Waiting for Storekeeper",
         className: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
     issued: {
-        label: "Issued",
+        label: "Handed Out",
         className: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
     },
     rejected: {
@@ -245,7 +245,7 @@ export default function HousekeeperRequestsPage() {
                 <AppHeader />
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="page-title">My Stock Requests</h1>
+                        <h1 className="page-title">Stock Requests</h1>
                         <p className="page-description mt-2">
                             Track consumables requested from the Storekeeper.
                         </p>
@@ -260,8 +260,8 @@ export default function HousekeeperRequestsPage() {
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "pending", label: "Pending" },
-                            { value: "issued", label: "Issued" },
+                            { value: "pending", label: "Waiting" },
+                            { value: "issued", label: "Handed Out" },
                             { value: "escalated", label: "Owner Review" },
                             { value: "cancelled", label: "Voided" },
                             { value: "all", label: "All" },
@@ -308,7 +308,7 @@ export default function HousekeeperRequestsPage() {
                                             </p>
                                             {line.issuedQuantity !== null && (
                                                 <p className="mt-1 text-sm">
-                                                    Issued: {formatQuantity(line.issuedQuantity, line.unit)}
+                                                    Handed out: {formatQuantity(line.issuedQuantity, line.unit)}
                                                 </p>
                                             )}
                                         </div>

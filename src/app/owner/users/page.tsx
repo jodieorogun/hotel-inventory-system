@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AppHeader from "@/components/app-header";
 import ListSearch from "@/components/list-search";
+import { capitalizeInputWords } from "@/lib/item-validation";
 import { supabase } from "@/lib/supabase";
 import {
     formatStaffRole,
@@ -46,7 +47,7 @@ const statusDetails = {
             "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
     },
     invite_pending: {
-        label: "Invite Pending",
+        label: "Invite Sent",
         className:
             "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
     },
@@ -229,7 +230,7 @@ export default function OwnerUsersPage() {
 
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="page-title">Users</h1>
+                        <h1 className="page-title">Staff</h1>
                         <p className="page-description mt-2 max-w-2xl">
                             Add staff, change their access, or deactivate accounts when someone leaves.
                         </p>
@@ -242,7 +243,7 @@ export default function OwnerUsersPage() {
                         }}
                         className="primary-action"
                     >
-                        {showAddForm ? "Cancel" : "Add User"}
+                        {showAddForm ? "Cancel" : "Add Staff"}
                     </button>
                 </div>
 
@@ -274,6 +275,10 @@ export default function OwnerUsersPage() {
                                     type="text"
                                     value={name}
                                     onChange={(event) => setName(event.target.value)}
+                                    onBlur={() =>
+                                        setName(capitalizeInputWords(name))
+                                    }
+                                    autoCapitalize="words"
                                     className="form-control"
                                     autoComplete="name"
                                     required

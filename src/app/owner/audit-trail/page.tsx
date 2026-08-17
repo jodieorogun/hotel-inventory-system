@@ -67,7 +67,10 @@ function eventLink(event: AuditEvent) {
     }
 
     if (event.item_id) {
-        return { href: "/inventory", label: `Inventory Item #${event.item_id}` };
+        return {
+            href: `/inventory/${event.item_id}`,
+            label: `Inventory Item #${event.item_id}`,
+        };
     }
 
     return null;
@@ -254,7 +257,7 @@ export default function AuditTrailPage() {
             <main className="app-page">
                 <div className="mx-auto max-w-6xl">
                     <AppHeader />
-                    <p className="text-muted">Loading audit trail...</p>
+                    <p className="text-muted">Loading activity history...</p>
                 </div>
             </main>
         );
@@ -266,7 +269,7 @@ export default function AuditTrailPage() {
                 <AppHeader />
 
                 <div>
-                    <h1 className="page-title">Audit Trail</h1>
+                    <h1 className="page-title">Activity History</h1>
                     <p className="page-description mt-2 max-w-2xl">
                         A permanent, read-only record of important inventory and workflow activity.
                     </p>
@@ -280,7 +283,7 @@ export default function AuditTrailPage() {
 
                 {!errorMessage && (
                     <>
-                        <section className="surface-card mt-8 p-5" aria-label="Audit filters">
+                        <section className="surface-card mt-8 p-5" aria-label="Activity filters">
                             <div className="flex flex-wrap gap-2">
                                 {dateOptions.map((option) => (
                                     <button

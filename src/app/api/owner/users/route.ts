@@ -1,4 +1,5 @@
 import { errorResponse, requireOwner } from "@/lib/owner-api";
+import { capitalizeInputWords } from "@/lib/item-validation";
 import { isStaffRole } from "@/lib/staff-roles";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
@@ -165,7 +166,10 @@ export async function POST(request: Request) {
         return errorResponse("Enter the new staff member's details.", 400);
     }
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const name =
+        typeof body.name === "string"
+            ? capitalizeInputWords(body.name)
+            : "";
     const email = normalizeEmail(body.email);
 
     if (name.length < 2 || name.length > 80) {

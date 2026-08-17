@@ -210,15 +210,15 @@ export default function StorekeeperStockOutPage() {
                 <AppHeader />
                 <h1 className="page-title">Stock Requests</h1>
                 <p className="page-description mt-2">
-                    Record consumables handed out to Housekeepers.
+                    Review staff requests and record what was handed out.
                 </p>
 
                 {errorMessage && <p className="error-message mt-8">{errorMessage}</p>}
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "pending", label: "Pending" },
-                            { value: "issued", label: "Issued" },
+                            { value: "pending", label: "To Hand Out" },
+                            { value: "issued", label: "Handed Out" },
                             { value: "escalated", label: "Owner Review" },
                             { value: "all", label: "All" },
                         ]}
@@ -260,7 +260,7 @@ export default function StorekeeperStockOutPage() {
                                                 ? "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300"
                                                 : "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
                                     }`}>
-                                        {request.status === "pending_storekeeper" ? "Pending" : request.status === "issued" ? "Issued" : request.status === "escalated_owner" ? "Owner Review" : "Voided"}
+                                        {request.status === "pending_storekeeper" ? "To Hand Out" : request.status === "issued" ? "Handed Out" : request.status === "escalated_owner" ? "Owner Review" : "Voided"}
                                     </span>
                                 </div>
                                 <p className="mt-4 text-sm font-medium">{request.itemSummary || "No items"}</p>

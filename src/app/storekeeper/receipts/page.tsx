@@ -9,7 +9,6 @@ import RequestListFilters, {
     matchesDateFilter,
 } from "@/components/request-list-filters";
 import { supabase } from "@/lib/supabase";
-import { formatQuantity } from "@/lib/units";
 
 type ReceiptRequest = {
     id: number;
@@ -46,8 +45,6 @@ type RequestRow = {
 type RequestItemRow = {
     request_id: number;
     item_id: number;
-    quantity: number | string;
-    purchase_unit: string;
 };
 
 type UserRow = {
@@ -58,7 +55,6 @@ type UserRow = {
 type ItemRow = {
     id: number;
     name: string;
-    purchase_unit: string;
 };
 
 function formatDate(value: string) {
@@ -175,7 +171,7 @@ export default function StorekeeperReceiptsPage() {
             const [itemsResult, usersResult] = await Promise.all([
                 supabase
                     .from("purchase_requests_items")
-                    .select("request_id, item_id, quantity, purchase_unit")
+                    .select("request_id, item_id")
                     .in("request_id", requestIds),
                 supabase
                     .from("users")
@@ -204,7 +200,7 @@ export default function StorekeeperReceiptsPage() {
             if (itemIds.length > 0) {
                 const { data: itemData, error: itemNamesError } = await supabase
                     .from("items")
-                    .select("id, name, purchase_unit")
+                    .select("id, name")
                     .in("id", itemIds);
 
                 if (itemNamesError) {
@@ -235,16 +231,12 @@ export default function StorekeeperReceiptsPage() {
                 const requestItems = itemRows.filter(
                     (item) => item.request_id === request.id
                 );
-                const shownItems = requestItems.slice(0, 3).map(
-                    (item) => {
-                        const inventoryItem = itemsById.get(item.item_id);
-
-                        return `${inventoryItem?.name ?? "Unknown item"} · ${formatQuantity(
-                            Number(item.quantity),
-                            item.purchase_unit ?? inventoryItem?.purchase_unit ?? ""
-                        )}`;
-                    }
-                );
+                const shownItems = requestItems
+                    .slice(0, 3)
+                    .map(
+                        (item) =>
+                            itemsById.get(item.item_id)?.name ?? "Unknown item"
+                    );
                 const remainingItems = requestItems.length - shownItems.length;
 
                 return {
@@ -376,8 +368,8 @@ export default function StorekeeperReceiptsPage() {
                 {!errorMessage && (
                     <RequestListFilters
                         tabs={[
-                            { value: "awaiting", label: "Awaiting Receipt" },
-                            { value: "issues", label: "Receipt Issues" },
+                            { value: "awaiting", label: "To Receive" },
+                            { value: "issues", label: "Issues" },
                             { value: "received", label: "Received" },
                             { value: "all", label: "All" },
                         ]}
@@ -402,13 +394,13 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="waiting-heading"
                         >
                             <h2 id="waiting-heading" className="text-xl font-semibold">
-                                Awaiting Receipt
+                                To Receive
                             </h2>
 
                             {waitingRequests.length === 0 ? (
                                 <div className="surface-card mt-4 p-8 text-center">
                                     <h3 className="text-lg font-semibold">
-                                        No receipts awaiting review
+                                        No purchases to receive
                                     </h3>
                                     <p className="text-muted mt-2">
                                         Approved purchases will appear here.
@@ -441,7 +433,7 @@ export default function StorekeeperReceiptsPage() {
                                                 </div>
 
                                                 <span className="inline-flex self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                                                    Awaiting Receipt
+                                                    To Receive
                                                 </span>
                                             </div>
 
@@ -467,7 +459,7 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="issues-heading"
                         >
                             <h2 id="issues-heading" className="text-xl font-semibold">
-                                Receipt Issues
+                                Issues
                             </h2>
 
                             {issueRequests.length === 0 ? (
@@ -489,8 +481,7 @@ export default function StorekeeperReceiptsPage() {
                                                         Request #{request.id}
                                                     </h3>
                                                     <p className="mt-3 whitespace-pre-wrap text-sm">
-                                                        {request.receiptIssueReason ??
-                                                            "Receipt issue reported"}
+                                                        The counted quantities did not match the approved request.
                                                     </p>
                                                     {request.receiptIssueReportedAt && (
                                                         <p className="text-muted mt-2 text-sm">
@@ -529,7 +520,7 @@ export default function StorekeeperReceiptsPage() {
                             aria-labelledby="received-heading"
                         >
                             <h2 id="received-heading" className="text-xl font-semibold">
-                                Recently Received
+                                Received
                             </h2>
 
                             {receivedRequests.length === 0 ? (

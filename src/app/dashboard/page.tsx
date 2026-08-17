@@ -302,6 +302,7 @@ export default function DashboardPage() {
                     recentlyCompleted: requests.filter(
                         (request) => request.status === "received"
                     ).length,
+                    purchaseRequestAll: requests.length,
                 });
             }
             }
@@ -377,6 +378,7 @@ export default function DashboardPage() {
                         escalatedStockOut: stockOutRequests.filter(
                             (request) => request.status === "escalated_owner"
                         ).length,
+                        stockOutAll: stockOutRequests.length,
                     }));
                 }
             }
@@ -513,14 +515,14 @@ export default function DashboardPage() {
                         </Link>
                             <WorkflowWidget
                                 href="/housekeeper/requests?tab=pending"
-                                title="Pending"
+                                title="Waiting"
                                 count={workflowCounts.housekeeperPending ?? 0}
                                 description="Requests waiting for the Storekeeper"
                                 tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/housekeeper/requests?tab=issued"
-                                title="Issued"
+                                title="Handed Out"
                                 count={workflowCounts.housekeeperIssued ?? 0}
                                 description="Consumables handed over to you"
                                 tone="healthy"
@@ -551,7 +553,7 @@ export default function DashboardPage() {
 
                 {profile?.role === "procurement" && (
                     <DashboardSection
-                        title="Purchase requests"
+                        title="Purchase Requests"
                         description="Create requests and track them from approval to receipt"
                     >
                         <Link
@@ -567,14 +569,14 @@ export default function DashboardPage() {
                         </Link>
                             <WorkflowWidget
                                 href="/procurement?tab=active"
-                                title="Active"
+                                title="In Progress"
                                 count={workflowCounts.procurementActive ?? 0}
                                 description="Requests moving through the workflow"
                                 tone="active"
                             />
                             <WorkflowWidget
                                 href="/procurement?tab=rejected"
-                                title="Rejected"
+                                title="Needs Changes"
                                 count={workflowCounts.procurementRejected ?? 0}
                                 description="Requests to modify or escalate"
                                 tone="attention"
@@ -598,12 +600,12 @@ export default function DashboardPage() {
 
                 {profile?.role === "accountant" && (
                     <DashboardSection
-                        title="Purchase approvals"
+                        title="Purchase Requests"
                         description="Review requests and find earlier decisions"
                     >
                             <WorkflowWidget
                                 href="/accountant/requests?tab=pending"
-                                title="Pending"
+                                title="To Review"
                                 count={workflowCounts.accountantPending ?? 0}
                                 description="Requests waiting for your decision"
                                 tone="waiting"
@@ -626,7 +628,7 @@ export default function DashboardPage() {
                                 href="/accountant/requests?tab=all"
                                 title="All Requests"
                                 count={workflowCounts.accountantAll ?? 0}
-                                description="Pending and reviewed requests"
+                                description="Every request and decision"
                                 tone="neutral"
                             />
                     </DashboardSection>
@@ -635,7 +637,7 @@ export default function DashboardPage() {
                 {profile?.role === "storekeeper" && (
                     <>
                         <DashboardSection
-                            title="Stock coming in"
+                            title="Incoming stock"
                             description="Check purchases and add received goods to inventory"
                         >
                             <WorkflowWidget
@@ -647,21 +649,21 @@ export default function DashboardPage() {
                             />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=awaiting"
-                                title="Awaiting Receipt"
+                                title="To Receive"
                                 count={workflowCounts.awaitingReceipt ?? 0}
                                 description="Approved requests ready to check"
                                 tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=issues"
-                                title="Receipt Issues"
+                                title="Issues"
                                 count={workflowCounts.receiptIssues ?? 0}
                                 description="Reported mismatches awaiting resolution"
                                 tone="attention"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/receipts?tab=received"
-                                title="Recently Received"
+                                title="Received"
                                 count={workflowCounts.recentlyReceived ?? 0}
                                 description="Requests added to inventory"
                                 tone="healthy"
@@ -674,14 +676,14 @@ export default function DashboardPage() {
                         >
                             <WorkflowWidget
                                 href="/storekeeper/stock-out?tab=pending"
-                                title="Pending Stock Requests"
+                                title="To Hand Out"
                                 count={workflowCounts.pendingStockOut ?? 0}
                                 description="Consumables waiting to be handed out"
                                 tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/stock-out?tab=issued"
-                                title="Recently Issued"
+                                title="Handed Out"
                                 count={workflowCounts.issuedStockOut ?? 0}
                                 description="Consumables already handed over"
                                 tone="healthy"
@@ -692,21 +694,28 @@ export default function DashboardPage() {
 
                 {profile?.role === "owner" && (
                     <>
-                        <div className="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-6">
-                            <WorkflowWidget
-                                href="/owner/needs-attention"
-                                title="Needs Attention"
-                                count={workflowCounts.needsAttention ?? 0}
-                                description="Escalations, rejections, and receipt issues"
-                                tone="attention"
-                            />
-                            <WorkflowWidget
+                        <div className="mt-8 sm:mt-10">
+                            <Link
                                 href="/inventory"
-                                title="Inventory"
-                                count={inventoryItemCount}
-                                description="Items currently tracked in stock"
-                                tone="neutral"
-                            />
+                                className="dashboard-widget surface-card interactive-card flex items-center gap-3 p-4 sm:gap-7 sm:p-7"
+                            >
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--surface-subtle)] text-xl font-semibold text-[var(--foreground)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-3xl">
+                                    {inventoryItemCount}
+                                </span>
+
+                                <div className="min-w-0 flex-1">
+                                    <h2 className="text-lg font-semibold sm:text-xl">
+                                        Inventory
+                                    </h2>
+                                    <p className="text-muted mt-1 text-sm">
+                                        Items currently tracked in stock
+                                    </p>
+                                </div>
+
+                                <span aria-hidden="true" className="text-muted text-xl">
+                                    →
+                                </span>
+                            </Link>
                         </div>
 
                         <DashboardSection
@@ -726,29 +735,29 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
-                                href="/storekeeper/stock-out?tab=escalated"
-                                title="Stock-Out Escalations"
-                                count={workflowCounts.escalatedStockOut ?? 0}
-                                description="Consumable requests needing your decision"
-                                tone="attention"
+                                href="/storekeeper/stock-out?tab=all"
+                                title="Stock Requests"
+                                count={workflowCounts.stockOutAll ?? 0}
+                                description="Every consumable request in the system"
+                                tone="neutral"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/stock-out?tab=pending"
-                                title="Pending Stock Requests"
+                                title="To Hand Out"
                                 count={workflowCounts.pendingStockOut ?? 0}
                                 description="All consumable requests awaiting issue"
                                 tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/storekeeper/stock-out?tab=issued"
-                                title="Issued Consumables"
+                                title="Handed Out"
                                 count={workflowCounts.issuedStockOut ?? 0}
                                 description="Completed stock-out requests"
                                 tone="healthy"
                             />
                             <WorkflowWidget
                                 href="/owner/awaiting-receipt"
-                                title="Awaiting Receipt"
+                                title="Ready to Receive"
                                 count={workflowCounts.awaitingReceipt ?? 0}
                                 description="Approved requests ready to receive"
                                 tone="waiting"
@@ -756,7 +765,7 @@ export default function DashboardPage() {
                         </DashboardSection>
 
                         <DashboardSection
-                            title="Purchase requests"
+                            title="Purchase Requests"
                             description="Create purchases and follow their approval progress"
                         >
                             <Link
@@ -771,15 +780,22 @@ export default function DashboardPage() {
                                 </p>
                             </Link>
                             <WorkflowWidget
+                                href="/owner/purchase-requests"
+                                title="Purchase Requests"
+                                count={workflowCounts.purchaseRequestAll ?? 0}
+                                description="Every purchase request in the system"
+                                tone="neutral"
+                            />
+                            <WorkflowWidget
                                 href="/owner/awaiting-accountant"
-                                title="Awaiting Accountant"
+                                title="Waiting for Approval"
                                 count={workflowCounts.awaitingAccountant ?? 0}
                                 description="Requests ready for approval"
                                 tone="waiting"
                             />
                             <WorkflowWidget
                                 href="/owner/recently-completed"
-                                title="Recently Completed"
+                                title="Completed"
                                 count={workflowCounts.recentlyCompleted ?? 0}
                                 description="Received purchase requests"
                                 tone="healthy"
@@ -794,7 +810,7 @@ export default function DashboardPage() {
                                 href="/owner/audit-trail"
                                 className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
                             >
-                                <h2 className="text-xl font-semibold">Audit Trail</h2>
+                                <h2 className="text-xl font-semibold">Activity History</h2>
                                 <p className="text-muted mt-2">
                                     See what changed, who changed it, and when
                                 </p>
@@ -803,7 +819,7 @@ export default function DashboardPage() {
                                 href="/owner/users"
                                 className="dashboard-widget surface-card interactive-card p-7 lg:p-8"
                             >
-                                <h2 className="text-xl font-semibold">Users</h2>
+                                <h2 className="text-xl font-semibold">Staff</h2>
                                 <p className="text-muted mt-2">
                                     Add staff and manage their access
                                 </p>
