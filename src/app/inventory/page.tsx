@@ -24,6 +24,10 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [isOwner, setIsOwner] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({});
+    const [savingId, setSavingId] = useState<number | null>(null);
 
     useEffect(() => {
         let ignore = false;
@@ -38,6 +42,13 @@ export default function InventoryPage() {
                 router.replace("/login");
                 return;
             }
+
+            const { data: profile } = await supabase
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .maybeSingle();
+            setIsOwner(profile?.role === "owner");
 
             const { data, error } = await supabase
                 .from("items")
@@ -64,6 +75,35 @@ export default function InventoryPage() {
             ignore = true;
         };
     }, [router]);
+
+    function beginEdit(item: InventoryItem) {
+        setEditingId(item.id);
+        setEditDraft({ current_quantity: item.current_quantity, unit: item.unit, purchase_unit: item.purchase_unit, units_per_purchase_unit: item.units_per_purchase_unit });
+    }
+
+    async function saveEdit(itemId: number) {
+        if (!isOwner) return;
+        setSavingId(itemId);
+        const update = {
+            current_quantity: Math.max(0, Number(editDraft.current_quantity) || 0),
+            unit: String(editDraft.unit ?? "").trim(),
+            purchase_unit: String(editDraft.purchase_unit ?? "").trim(),
+            units_per_purchase_unit: Math.max(1, Math.floor(Number(editDraft.units_per_purchase_unit) || 1)),
+        };
+        if (!update.unit || !update.purchase_unit) {
+            setErrorMessage("Stock unit and purchase unit are required.");
+            setSavingId(null);
+            return;
+        }
+        const { data, error } = await supabase.from("items").update(update).eq("id", itemId).select("id, name, category, current_quantity, unit, purchase_unit, units_per_purchase_unit").single();
+        if (error) {
+            setErrorMessage("Could not save this item. Owner access is required.");
+        } else {
+            setItems((current) => current.map((item) => item.id === itemId ? data as InventoryItem : item));
+            setEditingId(null);
+        }
+        setSavingId(null);
+    }
 
     if (loading) {
         return (
@@ -96,7 +136,7 @@ export default function InventoryPage() {
                 </h1>
 
                 <p className="page-description mb-8">
-                    Current hotel stock
+                    Current hotel stock {isOwner ? "· Owner editing enabled" : "· Read-only"}
                 </p>
 
                 {errorMessage && (
@@ -186,6 +226,10 @@ export default function InventoryPage() {
                                     Stock Unit
                                 </th>
 
+                                {isOwner && (
+                                    <th className="px-7 py-5 text-right">Actions</th>
+                                )}
+
                                 <th className="px-7 py-5 text-right">
                                     History
                                 </th>
@@ -212,12 +256,33 @@ export default function InventoryPage() {
                                     </td>
 
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
-                                        {item.current_quantity}
+                                        {editingId === item.id ? (
+                                            <input className="form-control max-w-32" type="number" min="0" value={String(editDraft.current_quantity ?? "")} onChange={(event) => setEditDraft({ ...editDraft, current_quantity: event.target.value })} />
+                                        ) : item.current_quantity}
                                     </td>
 
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
-                                        {item.unit}
+                                        {editingId === item.id ? (
+                                            <div className="space-y-2">
+                                                <input className="form-control" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} aria-label="Stock unit" />
+                                                <input className="form-control" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} aria-label="Purchase unit" />
+                                                <input className="form-control" type="number" min="1" step="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} aria-label="Units per purchase unit" />
+                                            </div>
+                                        ) : item.unit}
                                     </td>
+
+                                    {isOwner && (
+                                        <td className="px-7 py-5 text-right">
+                                            {editingId === item.id ? (
+                                                <div className="flex justify-end gap-3">
+                                                    <button className="primary-action" disabled={savingId === item.id} onClick={() => saveEdit(item.id)}>{savingId === item.id ? "Saving..." : "Save"}</button>
+                                                    <button className="secondary-action" onClick={() => setEditingId(null)}>Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <button className="font-semibold text-[var(--accent)] hover:underline" onClick={() => beginEdit(item)}>Edit</button>
+                                            )}
+                                        </td>
+                                    )}
 
                                     <td className="px-7 py-5 text-right">
                                         <Link
@@ -232,7 +297,7 @@ export default function InventoryPage() {
                             {filteredItems.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={isOwner ? 6 : 5}
                                         className="text-muted px-7 py-10 text-center"
                                     >
                                         No inventory items match that search.
