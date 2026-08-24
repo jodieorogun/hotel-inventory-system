@@ -157,28 +157,6 @@ export default function InventoryPage() {
                             className="mb-5 max-w-xl"
                         />
 
-                    <div className="relative mb-5 max-w-xl">
-                        <button type="button" className="secondary-action" onClick={() => setFilterOpen((open) => !open)} aria-expanded={filterOpen}>
-                            Filter categories {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ""} <span aria-hidden="true">▾</span>
-                        </button>
-                        {filterOpen && (
-                            <div className="absolute left-0 top-14 z-20 w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-xl">
-                                <div className="mb-3 flex items-center justify-between">
-                                    <strong className="text-sm">Filter by category</strong>
-                                    <button type="button" className="text-sm font-semibold text-[var(--accent)]" onClick={() => setSelectedCategories([])}>Clear</button>
-                                </div>
-                                <div className="max-h-64 space-y-2 overflow-y-auto">
-                                    {[...new Set(items.map((item) => item.category))].sort().map((category) => (
-                                        <label key={category} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-hover)]">
-                                            <input type="checkbox" checked={selectedCategories.includes(category)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category] : current.filter((value) => value !== category))} />
-                                            <span>{category}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                                <button type="button" className="primary-action mt-4 w-full" onClick={() => setFilterOpen(false)}>Apply filters</button>
-                            </div>
-                        )}
-                    </div>
                     </>
                 )}
 
@@ -256,8 +234,18 @@ export default function InventoryPage() {
                                     Item
                                 </th>
 
-                                <th className="px-7 py-5 text-left">
-                                    Category
+                                <th className="relative px-7 py-5 text-left">
+                                    <div className="flex items-center gap-2">
+                                        <span>Category</span>
+                                        <button type="button" className="rounded px-1.5 py-0.5 text-xs hover:bg-[var(--surface-hover)]" onClick={() => setFilterOpen((open) => !open)} aria-expanded={filterOpen} aria-label="Filter categories">▾ {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ""}</button>
+                                    </div>
+                                    {filterOpen && (
+                                        <div className="absolute left-4 top-14 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left font-normal shadow-xl">
+                                            <div className="mb-3 flex items-center justify-between"><strong className="text-sm">Filter by category</strong><button type="button" className="text-sm font-semibold text-[var(--accent)]" onClick={() => setSelectedCategories([])}>Clear</button></div>
+                                            <div className="max-h-64 space-y-2 overflow-y-auto">{[...new Set(items.map((item) => item.category))].sort().map((category) => <label key={category} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-hover)]"><input type="checkbox" checked={selectedCategories.includes(category)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category] : current.filter((value) => value !== category))} /><span>{category}</span></label>)}</div>
+                                            <button type="button" className="primary-action mt-4 w-full" onClick={() => setFilterOpen(false)}>Apply filters</button>
+                                        </div>
+                                    )}
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
