@@ -24,7 +24,8 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [categoryFilter, setCategoryFilter] = useState("all");
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [filterOpen, setFilterOpen] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({});
@@ -120,7 +121,7 @@ export default function InventoryPage() {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const filteredItems = items.filter(
         (item) =>
-            (categoryFilter === "all" || item.category === categoryFilter) &&
+            (selectedCategories.length === 0 || selectedCategories.includes(item.category)) &&
             (!normalizedSearch ||
                 item.name.toLowerCase().includes(normalizedSearch) ||
                 item.category.toLowerCase().includes(normalizedSearch) ||
@@ -156,13 +157,28 @@ export default function InventoryPage() {
                             className="mb-5 max-w-xl"
                         />
 
-                    <label className="form-label mb-5 block max-w-xl" htmlFor="inventory-category">
-                        Filter by category
-                        <select id="inventory-category" className="form-control mt-2" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                            <option value="all">All categories</option>
-                            {[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category} value={category}>{category}</option>)}
-                        </select>
-                        </label>
+                    <div className="relative mb-5 max-w-xl">
+                        <button type="button" className="secondary-action" onClick={() => setFilterOpen((open) => !open)} aria-expanded={filterOpen}>
+                            Filter categories {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ""} <span aria-hidden="true">▾</span>
+                        </button>
+                        {filterOpen && (
+                            <div className="absolute left-0 top-14 z-20 w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-xl">
+                                <div className="mb-3 flex items-center justify-between">
+                                    <strong className="text-sm">Filter by category</strong>
+                                    <button type="button" className="text-sm font-semibold text-[var(--accent)]" onClick={() => setSelectedCategories([])}>Clear</button>
+                                </div>
+                                <div className="max-h-64 space-y-2 overflow-y-auto">
+                                    {[...new Set(items.map((item) => item.category))].sort().map((category) => (
+                                        <label key={category} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-hover)]">
+                                            <input type="checkbox" checked={selectedCategories.includes(category)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category] : current.filter((value) => value !== category))} />
+                                            <span>{category}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <button type="button" className="primary-action mt-4 w-full" onClick={() => setFilterOpen(false)}>Apply filters</button>
+                            </div>
+                        )}
+                    </div>
                     </>
                 )}
 
