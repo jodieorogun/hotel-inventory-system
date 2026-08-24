@@ -156,7 +156,7 @@ export default function LoginPage() {
                             Password
                         </label>
 
-                        <div className="relative"><input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} className="form-control pr-12" autoComplete="current-password" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "🙈" : "👁"}</button></div>
+                        <div className="relative"><input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} className="form-control pr-12" autoComplete="current-password" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-2" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}><span className={`password-eye ${!showPassword ? "password-eye-hidden" : ""}`} aria-hidden="true" /></button></div>
                     </div>
 
                     {errorMessage && (

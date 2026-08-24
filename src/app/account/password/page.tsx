@@ -90,14 +90,14 @@ export default function ChangePasswordPage() {
                             <label className="form-label" htmlFor="current-password">
                                 Current password
                             </label>
-                            <div className="relative"><input id="current-password" type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowCurrent((value) => !value)} aria-label={showCurrent ? "Hide password" : "Show password"}>{showCurrent ? "🙈" : "👁"}</button></div>
+                            <div className="relative"><input id="current-password" type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-2" onClick={() => setShowCurrent((value) => !value)} aria-label={showCurrent ? "Hide password" : "Show password"}><span className={`password-eye ${!showCurrent ? "password-eye-hidden" : ""}`} aria-hidden="true" /></button></div>
                         </div>
 
                         <div>
                             <label className="form-label" htmlFor="new-account-password">
                                 New password
                             </label>
-                            <div className="relative"><input id="new-account-password" type={showNew ? "text" : "password"} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowNew((value) => !value)} aria-label={showNew ? "Hide password" : "Show password"}>{showNew ? "🙈" : "👁"}</button></div>
+                            <div className="relative"><input id="new-account-password" type={showNew ? "text" : "password"} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-2" onClick={() => setShowNew((value) => !value)} aria-label={showNew ? "Hide password" : "Show password"}><span className={`password-eye ${!showNew ? "password-eye-hidden" : ""}`} aria-hidden="true" /></button></div>
                             <p className="text-muted mt-2 text-xs">
                                 Use at least 8 characters.
                             </p>
@@ -107,7 +107,7 @@ export default function ChangePasswordPage() {
                             <label className="form-label" htmlFor="confirm-account-password">
                                 Confirm new password
                             </label>
-                            <div className="relative"><input id="confirm-account-password" type={showConfirmation ? "text" : "password"} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowConfirmation((value) => !value)} aria-label={showConfirmation ? "Hide password" : "Show password"}>{showConfirmation ? "🙈" : "👁"}</button></div>
+                            <div className="relative"><input id="confirm-account-password" type={showConfirmation ? "text" : "password"} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-2" onClick={() => setShowConfirmation((value) => !value)} aria-label={showConfirmation ? "Hide password" : "Show password"}><span className={`password-eye ${!showConfirmation ? "password-eye-hidden" : ""}`} aria-hidden="true" /></button></div>
                         </div>
 
                         {errorMessage && (
