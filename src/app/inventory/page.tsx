@@ -24,6 +24,8 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [filterOpen, setFilterOpen] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({});
@@ -119,11 +121,12 @@ export default function InventoryPage() {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const filteredItems = items.filter(
         (item) =>
-            !normalizedSearch ||
-            item.name.toLowerCase().includes(normalizedSearch) ||
-            item.category.toLowerCase().includes(normalizedSearch) ||
-            item.unit.toLowerCase().includes(normalizedSearch) ||
-            item.purchase_unit.toLowerCase().includes(normalizedSearch)
+            (selectedCategories.length === 0 || selectedCategories.includes(item.category)) &&
+            (!normalizedSearch ||
+                item.name.toLowerCase().includes(normalizedSearch) ||
+                item.category.toLowerCase().includes(normalizedSearch) ||
+                item.unit.toLowerCase().includes(normalizedSearch) ||
+                item.purchase_unit.toLowerCase().includes(normalizedSearch))
     );
 
     return (
@@ -146,19 +149,21 @@ export default function InventoryPage() {
                 )}
 
                 {!errorMessage && (
-                    <ListSearch
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        placeholder="Search inventory by item, category, or unit"
-                        className="mb-5 max-w-xl"
-                    />
+                    <>
+                        <ListSearch
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Search inventory by item, category, or unit"
+                            className="mb-5 max-w-xl"
+                        />
+
+                    </>
                 )}
 
                 <div className="grid gap-4 sm:hidden">
                     {filteredItems.map((item) => (
-                        <Link
+                        <div
                             key={item.id}
-                            href={`/inventory/${item.id}`}
                             className="surface-card interactive-card block p-5"
                         >
                             <div className="flex items-start justify-between gap-4">
@@ -191,10 +196,25 @@ export default function InventoryPage() {
                                     </dd>
                                 </div>
                             </dl>
-                            <span className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)]">
+                            {isOwner && (
+                                <div className="mt-5 border-t border-[var(--border)] pt-4">
+                                    {editingId === item.id ? (
+                                        <div className="space-y-3" onClick={(event) => event.preventDefault()}>
+                                            <label className="form-label">On hand<input className="form-control mt-1" type="number" min="0" value={String(editDraft.current_quantity ?? "")} onChange={(event) => setEditDraft({ ...editDraft, current_quantity: event.target.value })} /></label>
+                                            <label className="form-label">Stock unit<input className="form-control mt-1" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} /></label>
+                                            <label className="form-label">Purchase unit<input className="form-control mt-1" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} /></label>
+                                            <label className="form-label">Units per purchase unit<input className="form-control mt-1" type="number" min="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} /></label>
+                                            <div className="flex gap-3"><button type="button" className="primary-action flex-1" disabled={savingId === item.id} onClick={() => saveEdit(item.id)}>{savingId === item.id ? "Saving..." : "Save"}</button><button type="button" className="secondary-action flex-1" onClick={() => setEditingId(null)}>Cancel</button></div>
+                                        </div>
+                                    ) : (
+                                        <button type="button" className="secondary-action w-full" onClick={(event) => { event.preventDefault(); beginEdit(item); }}>Edit inventory item</button>
+                                    )}
+                                </div>
+                            )}
+                            <Link href={`/inventory/${item.id}`} className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)]">
                                 View stock history →
-                            </span>
-                        </Link>
+                            </Link>
+                        </div>
                     ))}
 
                     {filteredItems.length === 0 && (
@@ -214,8 +234,18 @@ export default function InventoryPage() {
                                     Item
                                 </th>
 
-                                <th className="px-7 py-5 text-left">
-                                    Category
+                                <th className="relative px-7 py-5 text-left">
+                                    <div className="flex items-center gap-2">
+                                        <span>Category</span>
+                                        <button type="button" className="rounded px-1.5 py-0.5 text-xs hover:bg-[var(--surface-hover)]" onClick={() => setFilterOpen((open) => !open)} aria-expanded={filterOpen} aria-label="Filter categories">▾ {selectedCategories.length > 0 ? `(${selectedCategories.length})` : ""}</button>
+                                    </div>
+                                    {filterOpen && (
+                                        <div className="absolute left-4 top-14 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left font-normal shadow-xl">
+                                            <div className="mb-3 flex items-center justify-between"><strong className="text-sm">Filter by category</strong><button type="button" className="text-sm font-semibold text-[var(--accent)]" onClick={() => setSelectedCategories([])}>Clear</button></div>
+                                            <div className="max-h-64 space-y-2 overflow-y-auto">{[...new Set(items.map((item) => item.category))].sort().map((category) => <label key={category} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-[var(--surface-hover)]"><input type="checkbox" checked={selectedCategories.includes(category)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category] : current.filter((value) => value !== category))} /><span>{category}</span></label>)}</div>
+                                            <button type="button" className="primary-action mt-4 w-full" onClick={() => setFilterOpen(false)}>Apply filters</button>
+                                        </div>
+                                    )}
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
@@ -264,9 +294,9 @@ export default function InventoryPage() {
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {editingId === item.id ? (
                                             <div className="space-y-2">
-                                                <input className="form-control" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} aria-label="Stock unit" />
-                                                <input className="form-control" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} aria-label="Purchase unit" />
-                                                <input className="form-control" type="number" min="1" step="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} aria-label="Units per purchase unit" />
+                                                <label className="text-sm font-medium">Stock unit<input className="form-control mt-1" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} /></label>
+                                                <label className="text-sm font-medium">Purchase unit<input className="form-control mt-1" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} /></label>
+                                                <label className="text-sm font-medium">Units per purchase unit<input className="form-control mt-1" type="number" min="1" step="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} /></label>
                                             </div>
                                         ) : item.unit}
                                     </td>
