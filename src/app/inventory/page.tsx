@@ -26,6 +26,7 @@ export default function InventoryPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [filterOpen, setFilterOpen] = useState(false);
+    const [sortQuantityDescending, setSortQuantityDescending] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({});
@@ -127,7 +128,7 @@ export default function InventoryPage() {
                 item.category.toLowerCase().includes(normalizedSearch) ||
                 item.unit.toLowerCase().includes(normalizedSearch) ||
                 item.purchase_unit.toLowerCase().includes(normalizedSearch))
-    );
+    ).sort((a, b) => sortQuantityDescending ? Number(b.current_quantity) - Number(a.current_quantity) : 0);
 
     return (
         <main className="app-page">
@@ -249,7 +250,9 @@ export default function InventoryPage() {
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
-                                    Quantity
+                                    <button type="button" className="font-semibold hover:text-[var(--accent)]" onClick={() => setSortQuantityDescending((descending) => !descending)} aria-label="Sort by quantity">
+                                        Quantity {sortQuantityDescending ? "↓" : "↕"}
+                                    </button>
                                 </th>
 
                                 <th className="px-7 py-5 text-left">
