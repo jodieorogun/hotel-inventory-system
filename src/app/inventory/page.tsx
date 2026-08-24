@@ -24,6 +24,7 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("all");
     const [isOwner, setIsOwner] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({});
@@ -119,11 +120,12 @@ export default function InventoryPage() {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const filteredItems = items.filter(
         (item) =>
-            !normalizedSearch ||
-            item.name.toLowerCase().includes(normalizedSearch) ||
-            item.category.toLowerCase().includes(normalizedSearch) ||
-            item.unit.toLowerCase().includes(normalizedSearch) ||
-            item.purchase_unit.toLowerCase().includes(normalizedSearch)
+            (categoryFilter === "all" || item.category === categoryFilter) &&
+            (!normalizedSearch ||
+                item.name.toLowerCase().includes(normalizedSearch) ||
+                item.category.toLowerCase().includes(normalizedSearch) ||
+                item.unit.toLowerCase().includes(normalizedSearch) ||
+                item.purchase_unit.toLowerCase().includes(normalizedSearch))
     );
 
     return (
@@ -146,12 +148,22 @@ export default function InventoryPage() {
                 )}
 
                 {!errorMessage && (
-                    <ListSearch
-                        value={searchQuery}
-                        onChange={setSearchQuery}
-                        placeholder="Search inventory by item, category, or unit"
-                        className="mb-5 max-w-xl"
-                    />
+                    <>
+                        <ListSearch
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Search inventory by item, category, or unit"
+                            className="mb-5 max-w-xl"
+                        />
+
+                    <label className="form-label mb-5 block max-w-xl" htmlFor="inventory-category">
+                        Filter by category
+                        <select id="inventory-category" className="form-control mt-2" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                            <option value="all">All categories</option>
+                            {[...new Set(items.map((item) => item.category))].sort().map((category) => <option key={category} value={category}>{category}</option>)}
+                        </select>
+                        </label>
+                    </>
                 )}
 
                 <div className="grid gap-4 sm:hidden">
@@ -264,9 +276,9 @@ export default function InventoryPage() {
                                     <td className="px-7 py-5 text-[var(--muted-strong)]">
                                         {editingId === item.id ? (
                                             <div className="space-y-2">
-                                                <input className="form-control" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} aria-label="Stock unit" />
-                                                <input className="form-control" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} aria-label="Purchase unit" />
-                                                <input className="form-control" type="number" min="1" step="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} aria-label="Units per purchase unit" />
+                                                <label className="text-sm font-medium">Stock unit<input className="form-control mt-1" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} /></label>
+                                                <label className="text-sm font-medium">Purchase unit<input className="form-control mt-1" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} /></label>
+                                                <label className="text-sm font-medium">Units per purchase unit<input className="form-control mt-1" type="number" min="1" step="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} /></label>
                                             </div>
                                         ) : item.unit}
                                     </td>

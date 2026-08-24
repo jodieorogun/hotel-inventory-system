@@ -10,6 +10,7 @@ export default function LoginPage() {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [signingIn, setSigningIn] = useState(false);
@@ -155,17 +156,7 @@ export default function LoginPage() {
                             Password
                         </label>
 
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(event) =>
-                                setPassword(event.target.value)
-                            }
-                            className="form-control"
-                            autoComplete="current-password"
-                            required
-                        />
+                        <div className="relative"><input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} className="form-control pr-12" autoComplete="current-password" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "🙈" : "👁"}</button></div>
                     </div>
 
                     {errorMessage && (

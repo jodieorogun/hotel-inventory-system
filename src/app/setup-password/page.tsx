@@ -13,6 +13,8 @@ export default function SetupPasswordPage() {
     const router = useRouter();
     const [password, setPassword] = useState("");
     const [confirmation, setConfirmation] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmation, setShowConfirmation] = useState(false);
     const [checkingSession, setCheckingSession] = useState(true);
     const [setupAccount, setSetupAccount] = useState<SetupAccount | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -168,29 +170,11 @@ export default function SetupPasswordPage() {
                         </p>
                         <div>
                             <label className="form-label" htmlFor="new-password">New password</label>
-                            <input
-                                id="new-password"
-                                type="password"
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                minLength={8}
-                                autoComplete="new-password"
-                                className="form-control"
-                                required
-                            />
+                            <div className="relative"><input id="new-password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "🙈" : "👁"}</button></div>
                         </div>
                         <div>
                             <label className="form-label" htmlFor="confirm-password">Confirm password</label>
-                            <input
-                                id="confirm-password"
-                                type="password"
-                                value={confirmation}
-                                onChange={(event) => setConfirmation(event.target.value)}
-                                minLength={8}
-                                autoComplete="new-password"
-                                className="form-control"
-                                required
-                            />
+                            <div className="relative"><input id="confirm-password" type={showConfirmation ? "text" : "password"} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={8} autoComplete="new-password" className="form-control pr-12" required /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" onClick={() => setShowConfirmation((value) => !value)} aria-label={showConfirmation ? "Hide password" : "Show password"}>{showConfirmation ? "🙈" : "👁"}</button></div>
                         </div>
                         {errorMessage && (
                             <p className="error-message" role="alert">{errorMessage}</p>
