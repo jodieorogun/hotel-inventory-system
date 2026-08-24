@@ -168,9 +168,8 @@ export default function InventoryPage() {
 
                 <div className="grid gap-4 sm:hidden">
                     {filteredItems.map((item) => (
-                        <Link
+                        <div
                             key={item.id}
-                            href={`/inventory/${item.id}`}
                             className="surface-card interactive-card block p-5"
                         >
                             <div className="flex items-start justify-between gap-4">
@@ -203,10 +202,25 @@ export default function InventoryPage() {
                                     </dd>
                                 </div>
                             </dl>
-                            <span className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)]">
+                            {isOwner && (
+                                <div className="mt-5 border-t border-[var(--border)] pt-4">
+                                    {editingId === item.id ? (
+                                        <div className="space-y-3" onClick={(event) => event.preventDefault()}>
+                                            <label className="form-label">On hand<input className="form-control mt-1" type="number" min="0" value={String(editDraft.current_quantity ?? "")} onChange={(event) => setEditDraft({ ...editDraft, current_quantity: event.target.value })} /></label>
+                                            <label className="form-label">Stock unit<input className="form-control mt-1" value={String(editDraft.unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, unit: event.target.value })} /></label>
+                                            <label className="form-label">Purchase unit<input className="form-control mt-1" value={String(editDraft.purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, purchase_unit: event.target.value })} /></label>
+                                            <label className="form-label">Units per purchase unit<input className="form-control mt-1" type="number" min="1" value={String(editDraft.units_per_purchase_unit ?? "")} onChange={(event) => setEditDraft({ ...editDraft, units_per_purchase_unit: event.target.value })} /></label>
+                                            <div className="flex gap-3"><button type="button" className="primary-action flex-1" disabled={savingId === item.id} onClick={() => saveEdit(item.id)}>{savingId === item.id ? "Saving..." : "Save"}</button><button type="button" className="secondary-action flex-1" onClick={() => setEditingId(null)}>Cancel</button></div>
+                                        </div>
+                                    ) : (
+                                        <button type="button" className="secondary-action w-full" onClick={(event) => { event.preventDefault(); beginEdit(item); }}>Edit inventory item</button>
+                                    )}
+                                </div>
+                            )}
+                            <Link href={`/inventory/${item.id}`} className="mt-4 inline-flex text-sm font-semibold text-[var(--accent)]">
                                 View stock history →
-                            </span>
-                        </Link>
+                            </Link>
+                        </div>
                     ))}
 
                     {filteredItems.length === 0 && (
